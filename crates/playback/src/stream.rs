@@ -56,11 +56,14 @@ where
     let frame = channels.max(1);
     let mut scratch = vec![0.0f32; 8192 * frame];
     let chunk = scratch.len();
-    let (failed, guard, gone) = (Arc::clone(fault), Arc::clone(shared), Arc::clone(fault));
+    let (failed, guard, gone, timing) = (Arc::clone(fault), Arc::clone(shared), Arc::clone(fault), Arc::clone(fault));
     device.build_output_stream(
         config,
-        move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
+        move |data: &mut [T], info: &cpal::OutputCallbackInfo| {
             mark_audio_thread();
+            let t = info.timestamp();
+            let us = u32::try_from(t.playback.saturating_duration_since(t.callback).as_micros()).unwrap_or(u32::MAX);
+            timing.output_latency_us.store(us, Ordering::Relaxed);
             for out in data.chunks_mut(chunk) {
                 let Some(s) = scratch.get_mut(..out.len()) else { return };
                 guarded_block(&failed, &guard, s, |d| state.fill(d, channels));

@@ -188,6 +188,16 @@ impl Player {
         p
     }
 
+    /// Output latency the device reports for the block being played, in milliseconds, once known
+    /// (`None` before the first block, and on hosts that give no timestamps). This is the
+    /// buffering after the mix, not the time the mix itself takes.
+    pub fn output_latency_ms(&self) -> Option<f32> {
+        match self.fault.output_latency_us.load(Ordering::Relaxed) {
+            0 => None,
+            us => Some(us as f32 / 1000.0),
+        }
+    }
+
     /// What stopped the audio output, once: a bug in the engine, or the device went away or
     /// stopped asking for audio while playing.
     pub fn trouble(&self) -> Option<OutputTrouble> {

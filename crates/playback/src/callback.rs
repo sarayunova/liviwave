@@ -11,6 +11,8 @@ pub(crate) struct Fault {
     pub(crate) beats: std::sync::atomic::AtomicU64,
     /// The UI has been told.
     reported: AtomicBool,
+    /// Output latency the device last reported (callback to playback) in microseconds; 0 until known.
+    pub(crate) output_latency_us: std::sync::atomic::AtomicU32,
 }
 
 impl Fault {

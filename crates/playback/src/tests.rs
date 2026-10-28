@@ -716,3 +716,9 @@ fn armed_tracks_are_heard_and_metered_after_playback_stops() {
     assert!(out.iter().any(|x| x.abs() > 0.1), "the input is heard");
     assert!(shared.meters.lock().unwrap().tracks.get(&t).is_some_and(|m| m.peak[0] > 0.1), "and metered");
 }
+
+#[test]
+fn output_latency_is_unknown_until_the_device_reports_a_playback_time() {
+    let fault = Fault::default();
+    assert_eq!(fault.output_latency_us.load(Ordering::Relaxed), 0);
+}
