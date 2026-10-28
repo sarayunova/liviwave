@@ -469,7 +469,8 @@ impl MixEngine {
                 st.align_pre.process(&mut st.pre, frames);
             }
             let waits = match &t.mixer.output {
-                Route::Main => true,
+                // Every output path waits like the main mix, so they stay aligned with one another.
+                Route::Main | Route::Hardware(_) => true,
                 Route::Bus(b) => self.aux_fed.contains(b),
                 _ => false,
             };

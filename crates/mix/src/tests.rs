@@ -1214,3 +1214,22 @@ fn a_route_to_a_missing_output_path_is_silent_and_removing_the_path_drops_its_bu
     assert!(mix.extra_outputs().is_empty());
     assert!(main.iter().all(|c| c.iter().all(|x| x.abs() < 1e-6)));
 }
+
+#[test]
+fn a_bus_reaches_another_output_path_through_its_aux_return() {
+    let (mut s, t) = session_with_dc(0.5, 4800);
+    s.outputs.push(liviwave_model::OutputPath { name: "Out 3-4".into(), first_channel: 2, format: ChannelFormat::Stereo });
+    let bus = s.add_bus("Stem", ChannelFormat::Stereo);
+    let aux = s.add_track(TrackKind::Aux, ChannelFormat::Stereo, Some("Stem return"));
+    s.track_mut(t).unwrap().mixer.output = Route::Bus(bus);
+    {
+        let a = s.track_mut(aux).unwrap();
+        a.mixer.input = Route::Bus(bus);
+        a.mixer.output = Route::Hardware("Out 3-4".into());
+    }
+    let mut mix = MixEngine::new(48_000.0, 512);
+    let mut main = vec![vec![0.0f32; 512]; 2];
+    mix.render(&s, 0, 512, &mut main);
+    assert!(main.iter().all(|c| c.iter().all(|x| x.abs() < 1e-6)), "the main mix stays silent");
+    assert!(mix.extra_outputs()[0].buf.iter().all(|c| c[256].abs() > 0.1), "the bus plays on Out 3-4");
+}

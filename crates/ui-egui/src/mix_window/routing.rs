@@ -33,6 +33,16 @@ fn route_menu(app: &mut SoundApp, ui: &mut Ui, id: TrackId, input: bool) {
         let _ = app.run(cmd, json!({"track": id.0, key: "main"}));
         ui.close();
     }
+    if !input {
+        // The other output paths of I/O Setup (Out 3-4, ...): each plays on its own device channels.
+        let paths: Vec<String> = app.engine.session().outputs.iter().skip(1).map(|o| o.name.clone()).collect();
+        for name in paths {
+            if ui.button(&name).clicked() {
+                let _ = app.run(cmd, json!({"track": id.0, key: name}));
+                ui.close();
+            }
+        }
+    }
     if input {
         for i in 1..=8 {
             if ui.button(format!("In {i}")).clicked() {
