@@ -520,6 +520,18 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
             let buffers = out.map(DeviceInfo::buffer_sizes).unwrap_or_else(|| liviwave_playback::devices::STANDARD_BUFFERS.to_vec());
             number_combo(ui, "pe-buffer", "Buffer size", &mut draft.buffer_size, &buffers, "samples");
             ui.end_row();
+            ui.label("Record offset");
+            ui.horizontal(|ui| {
+                let mut auto = draft.record_offset.is_none();
+                let tip = "Place recordings earlier by the input and output latency the devices report. Turn off to set the offset by hand, for a driver that under-reports.";
+                if ui.checkbox(&mut auto, "Automatic").on_hover_text(tip).changed() {
+                    draft.record_offset = if auto { None } else { Some(0) };
+                }
+                if let Some(n) = draft.record_offset.as_mut() {
+                    ui.add(egui::DragValue::new(n).range(0..=96_000).suffix(" samples")).on_hover_text("Samples at the session rate");
+                }
+            });
+            ui.end_row();
         });
         ui.add_space(4.0);
         ui.horizontal(|ui| {
@@ -557,7 +569,8 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
             ui.end_row();
             ui.label("Input");
             ui.label(app.recorder.as_ref().map_or("opened on first record or monitor".to_string(), |r| {
-                format!("{} · {} Hz · {} ch", r.device_name, r.sample_rate, r.channels)
+                let latency = r.input_latency_ms().map_or(String::new(), |ms| format!(" · {ms:.1} ms latency"));
+                format!("{} · {} Hz · {} ch{latency}", r.device_name, r.sample_rate, r.channels)
             }));
             ui.end_row();
             ui.label("Session rate");
@@ -598,7 +611,7 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
 }
 
 /// `ui.audio_device`: `{list?: bool}` returns the audio systems and their devices;
-/// `{system?, output?, input?, sample_rate?, buffer_size?}` (a `null` value means "default") sets
+/// `{system?, output?, input?, sample_rate?, buffer_size?, record_offset?}` (a `null` value means "default"; `record_offset` is samples, null = automatic) sets
 /// the choice and reopens the devices. Always returns the choice and the open device.
 pub fn audio_device_command(app: &mut SoundApp, p: &serde_json::Value) -> Result<serde_json::Value, String> {
     use serde_json::Value;
@@ -618,6 +631,15 @@ pub fn audio_device_command(app: &mut SoundApp, p: &serde_json::Value) -> Result
             };
             changed = true;
         }
+    }
+    if let Some(v) = p.get("record_offset") {
+        cfg.record_offset = match v {
+            Value::Null => None,
+            v => {
+                Some(v.as_i64().filter(|n| (0..=96_000).contains(n)).ok_or("`record_offset` must be a number of samples in 0..=96000 or null")? as i32)
+            }
+        };
+        changed = true;
     }
     if changed {
         app.apply_audio_config(cfg)?;

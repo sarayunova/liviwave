@@ -32,6 +32,22 @@ pub struct AudioConfig {
     pub sample_rate: Option<u32>,
     /// Device buffer in frames.
     pub buffer_size: Option<u32>,
+    /// How far earlier a finished recording is placed, in samples at the session rate, to cancel
+    /// the round trip through the interface. `None` uses the latencies the devices report;
+    /// `Some(0)` places takes exactly where the input arrived.
+    pub record_offset: Option<i32>,
+}
+
+impl AudioConfig {
+    /// The shift (in samples at `session_rate`) to place a recording earlier by: the chosen
+    /// offset, else the input and output latencies the devices report (0 for one not yet known).
+    pub fn record_offset_samples(&self, input_ms: Option<f32>, output_ms: Option<f32>, session_rate: u32) -> i64 {
+        match self.record_offset {
+            Some(n) => i64::from(n.max(0)),
+            None => ((f64::from(input_ms.unwrap_or(0.0)) + f64::from(output_ms.unwrap_or(0.0))).max(0.0) * f64::from(session_rate) / 1000.0).round()
+                as i64,
+        }
+    }
 }
 
 /// One device as the settings window lists it.
@@ -198,6 +214,7 @@ mod tests {
             input: None,
             sample_rate: Some(48_000),
             buffer_size: Some(256),
+            record_offset: Some(96),
         };
         let s = serde_json::to_string(&c).unwrap();
         assert_eq!(serde_json::from_str::<AudioConfig>(&s).unwrap(), c);
@@ -300,5 +317,27 @@ mod tests {
         // Every listed system has a name; on a machine without audio the lists are just empty.
         assert!(systems.iter().all(|s| !s.name.is_empty()));
         assert!(systems.iter().filter(|s| s.is_default).count() <= 1);
+    }
+}
+
+#[cfg(test)]
+mod offset_tests {
+    use super::*;
+
+    #[test]
+    fn automatic_offset_is_the_reported_round_trip_in_session_samples() {
+        let cfg = AudioConfig::default();
+        assert_eq!(cfg.record_offset_samples(Some(2.0), Some(3.0), 48_000), 240);
+        assert_eq!(cfg.record_offset_samples(None, Some(3.0), 48_000), 144);
+        assert_eq!(cfg.record_offset_samples(None, None, 48_000), 0);
+    }
+
+    #[test]
+    fn a_chosen_offset_wins_over_the_reported_latency() {
+        let cfg = AudioConfig { record_offset: Some(100), ..Default::default() };
+        assert_eq!(cfg.record_offset_samples(Some(2.0), Some(3.0), 48_000), 100);
+        let off = AudioConfig { record_offset: Some(0), ..Default::default() };
+        assert_eq!(off.record_offset_samples(Some(2.0), Some(3.0), 48_000), 0);
+        assert_eq!(AudioConfig { record_offset: Some(-5), ..Default::default() }.record_offset_samples(None, None, 48_000), 0);
     }
 }

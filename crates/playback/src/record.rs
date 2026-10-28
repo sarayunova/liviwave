@@ -95,12 +95,14 @@ struct Shared {
     fault: AtomicU8,
     /// The first failure writing a take, until it's reported.
     failed: Mutex<Option<String>>,
+    /// Input latency the device last reported (capture to callback), in microseconds; 0 until known.
+    latency_us: AtomicU32,
 }
 
 impl Shared {
     fn new(ring: CaptureRing) -> Shared {
         let (beats, fault, failed) = (AtomicU64::new(0), AtomicU8::new(0), Mutex::new(None));
-        Shared { armed: AtomicBool::new(false), ring, dropped: AtomicUsize::new(0), beats, fault, failed }
+        Shared { armed: AtomicBool::new(false), ring, dropped: AtomicUsize::new(0), beats, fault, failed, latency_us: AtomicU32::new(0) }
     }
 
     /// Run the input callback's `work`. After a panic in it, the input is broken and does
@@ -159,8 +161,11 @@ where
     let mut owed = 0;
     device.build_input_stream(
         config,
-        move |data: &[T], _: &cpal::InputCallbackInfo| {
+        move |data: &[T], info: &cpal::InputCallbackInfo| {
             crate::mark_audio_thread();
+            let t = info.timestamp();
+            let us = u32::try_from(t.callback.saturating_duration_since(t.capture).as_micros()).unwrap_or(u32::MAX);
+            sh.latency_us.store(us, Ordering::Relaxed);
             sh.guarded(|| {
                 for part in data.chunks(chunk) {
                     let Some(s) = scratch.get_mut(..part.len()) else { return };
@@ -323,6 +328,14 @@ impl Recorder {
             self.seen = (beats, Instant::now());
         }
         (self.seen.1.elapsed() >= STALL).then(|| Trouble::Device(format!("“{name}” stopped sending audio")))
+    }
+
+    /// Input latency the device reports (capture to callback), in milliseconds, once known.
+    pub fn input_latency_ms(&self) -> Option<f32> {
+        match self.shared.latency_us.load(Ordering::Relaxed) {
+            0 => None,
+            us => Some(us as f32 / 1000.0),
+        }
     }
 
     /// Input the current take has lost to a slow disk so far, in milliseconds.

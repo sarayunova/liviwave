@@ -184,8 +184,9 @@ impl SoundApp {
         let plan = self.take_plan.take();
         let Some(r) = &mut self.recorder else { return };
         let (takes, problem) = r.finish();
+        let input_ms = r.input_latency_ms();
         let tracks = takes.len().max(1);
-        let plan = plan.unwrap_or_else(|| liviwave_engine::io::Recording {
+        let mut plan = plan.unwrap_or_else(|| liviwave_engine::io::Recording {
             start: self.record_start,
             pass: None,
             punch: self.punch,
@@ -194,6 +195,11 @@ impl SoundApp {
         });
         self.punch = None;
         self.autosaved_rev = 0;
+        // What was played reached the ears late and what was heard reached the input later still:
+        // place the take earlier by that round trip (never before the start of the timeline).
+        let output_ms = self.player.as_ref().filter(|p| !p.silent).and_then(|p| p.output_latency_ms());
+        let offset = self.ui.audio.record_offset_samples(input_ms, output_ms, self.engine.session().sample_rate.hz());
+        plan.start = plan.start.saturating_sub(offset).max(0);
         let ids = liviwave_engine::io::place_recording(&mut self.engine, &plan, takes);
         self.ui.status =
             if plan.pass.is_some() { format!("Loop-recorded {} take(s)", ids.len() / tracks) } else { format!("Recorded {} clip(s)", ids.len()) };
