@@ -1,4 +1,4 @@
-use super::*;
+use super::{SoundApp, bold, mono, vec2};
 
 /// About window tabs for version information, contributors and models.
 pub(super) fn about(app: &mut SoundApp, ctx: &egui::Context) {
@@ -24,7 +24,7 @@ pub(super) fn about(app: &mut SoundApp, ctx: &egui::Context) {
             _ => {
                 ui.label(egui::RichText::new("LiVi Wave").font(bold(22.0)));
                 ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
-                ui.label("An open-source digital audio workstation, based on SoundCraft by the ArtCraft team.");
+                ui.label("An open-source digital audio workstation, based on LiVi Wave by the ArtCraft team.");
                 ui.label("Dual-licensed MIT OR Apache-2.0. Made with Rust and egui.");
             }
         }

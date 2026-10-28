@@ -2548,7 +2548,7 @@ checksum = "4744e383959f0db86ede514b809b1c53251889093803c05267acc7d4e7030d70"
 
 [[package]]
 name = "liviwave"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "chrono",
  "clap",
@@ -2572,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-au-host"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "liviwave-dsp",
  "log",
@@ -2582,7 +2582,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-audio-io"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "log",
  "proptest",
@@ -2594,7 +2594,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-automation"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "clap",
  "liviwave-audio-io",
@@ -2607,7 +2607,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-clap-host"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "clap-sys",
  "libloading 0.9.0",
@@ -2620,7 +2620,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-cli"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2637,7 +2637,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-dsp"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "log",
  "proptest",
@@ -2648,7 +2648,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-engine"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "craft-docpath",
  "liviwave-au-host",
@@ -2671,7 +2671,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-midi"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "proptest",
  "serde",
@@ -2681,7 +2681,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-mix"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "liviwave-au-host",
  "liviwave-audio-io",
@@ -2697,7 +2697,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-model"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "liviwave-audio-io",
  "liviwave-midi",
@@ -2710,7 +2710,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-playback"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "cpal",
  "liviwave-audio-io",
@@ -2725,7 +2725,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-time"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "proptest",
  "serde",
@@ -2735,7 +2735,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-ui-egui"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "craft-ui",
  "craft-update",
@@ -2764,7 +2764,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-video"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "craft-media",
  "image",
@@ -2776,7 +2776,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-vst3-host"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "libloading 0.9.0",
  "liviwave-dsp",
@@ -2792,7 +2792,7 @@ dependencies = [
 
 [[package]]
 name = "liviwave-web"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "eframe",
  "egui",
@@ -6139,7 +6139,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtask"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "serde_json",
 ]
