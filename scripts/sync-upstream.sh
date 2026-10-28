@@ -67,12 +67,26 @@ BR="sync/upstream-$(date +%Y%m%d)"
 git checkout -q -b "$BR"
 "${G[@]}" merge --no-ff --no-commit "$UP" >/dev/null 2>&1 || true
 
-# Conflicts we know how to settle: deletions we made on purpose, and renamed-away files.
+base="$(git merge-base HEAD "$UP")"
+renamed() {  # renamed REF OLDPATH NEWPATH: that version of the file with the rename applied
+  git show "$1:$2" | perl -p scripts/rename-rules.pl | { if [[ "$3" =~ $SUITE_FILES ]]; then perl -pe 's/ArtCraft/LiVi/g'; else cat; fi; }
+}
+
+# Conflicts we know how to settle: deletions we made on purpose, and files we renamed.
 git status --porcelain | grep -E '^(DU|UD|AU|UA) ' | cut -c4- | while IFS= read -r f; do
   if [[ "$f" =~ $KEEP_DELETED ]]; then git rm -q -f -- "$f"; echo "kept deleted: $f"
-  elif [[ "$f" == *soundcraft* ]]; then
-    n="$(dirname "$f")/$(basename "$f" | sed 's/soundcraft/liviwave/g')"
-    git show "$UP:$f" > "$n" && git add -- "$n" && git rm -q -f -- "$f"; echo "moved to new name: $f -> $n"
+  elif [[ "$f" == *soundcraft* || "$f" == *SoundCraft* ]]; then   # we renamed it; upstream edited the old path
+    n="$(echo "$f" | sed 's/soundcraft/liviwave/g;s/SoundCraft/LiViWave/g')"
+    tmp="$(mktemp -d)"
+    if git cat-file -e "HEAD:$n" 2>/dev/null && git cat-file -e "$base:$f" 2>/dev/null; then
+      git show "HEAD:$n" > "$tmp/ours"; renamed "$base" "$f" "$n" > "$tmp/base"; renamed "$UP" "$f" "$n" > "$tmp/theirs"
+      git merge-file -p "$tmp/ours" "$tmp/base" "$tmp/theirs" > "$n" || echo "needs a human (conflict markers in the file): $n"
+    else
+      renamed "$UP" "$f" "$n" > "$n"
+    fi
+    rm -rf "$tmp"
+    git add -- "$n"; git rm -q -f --cached -- "$f" 2>/dev/null || true; rm -f -- "$f"
+    echo "merged under the new name: $f -> $n"
   fi
 done
 
