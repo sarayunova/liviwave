@@ -288,6 +288,7 @@ impl AudioState {
         let step = self.session.sample_rate.as_f64() / self.device_rate.max(1.0) * speed.clamp(0.1, 4.0);
         let callback_frames = out.len() / channels;
         let quantum = ((callback_frames as f64 * step).ceil() as usize).clamp(1, BLOCK);
+        let first = main_first_channel(&self.session, self.pending.len(), channels);
         for frame in out.chunks_mut(channels) {
             while self.read >= self.pending_len as f64 {
                 self.read -= self.pending_len as f64;
@@ -310,15 +311,23 @@ impl AudioState {
                 let b = if i0 + 1 < self.pending_len { ch.and_then(|v| v.get(i0 + 1)).copied().unwrap_or(a) } else { a };
                 a * (1.0 - fr) + b * fr
             };
-            write_frame(frame, channels, nch, sounding, &self.fold, sample);
+            write_frame(frame, channels, nch, first, sounding, &self.fold, sample);
             self.read += step;
         }
     }
 }
 
+/// The device channel the main output path starts at (I/O Setup). The path goes there only when
+/// all its `nch` channels fit on a device of `channels`; otherwise it plays from channel 1.
+fn main_first_channel(session: &Session, nch: usize, channels: usize) -> usize {
+    let first = session.outputs.first().map_or(0, |o| usize::from(o.first_channel));
+    if first + nch <= channels { first } else { 0 }
+}
+
 /// Write one device frame from `nch` rendered channels: fold surround to stereo (a mono device
-/// averages the two sides), or copy the channels straight through. `sample(c)` is channel `c`.
-fn write_frame(frame: &mut [f32], channels: usize, nch: usize, sounding: bool, fold: &[(f32, f32)], sample: impl Fn(usize) -> f32) {
+/// averages the two sides), or copy the channels straight through, starting at device channel
+/// `first`. `sample(c)` is channel `c`.
+fn write_frame(frame: &mut [f32], channels: usize, nch: usize, first: usize, sounding: bool, fold: &[(f32, f32)], sample: impl Fn(usize) -> f32) {
     if channels < nch {
         // Fold surround to stereo first; a mono device averages the two sides.
         let (mut l, mut r) = (0.0f32, 0.0f32);
@@ -343,7 +352,11 @@ fn write_frame(frame: &mut [f32], channels: usize, nch: usize, sounding: bool, f
         }
     } else {
         for (c, o) in frame.iter_mut().enumerate() {
-            *o = if c < nch.max(1) && sounding { out_sample(sample(c)) } else { 0.0 };
+            let src = c.checked_sub(first).filter(|k| *k < nch.max(1));
+            *o = match src {
+                Some(k) if sounding => out_sample(sample(k)),
+                _ => 0.0,
+            };
         }
     }
 }
@@ -530,4 +543,41 @@ fn fold_gains(s: &Session) -> [(f32, f32); MAX_CHANNELS] {
         g[0] = (std::f32::consts::FRAC_1_SQRT_2, std::f32::consts::FRAC_1_SQRT_2);
     }
     g
+}
+
+#[cfg(test)]
+mod routing_tests {
+    use super::*;
+
+    fn session_at(first_channel: u16) -> Session {
+        let mut s = Session::default();
+        if let Some(o) = s.outputs.first_mut() {
+            o.first_channel = first_channel;
+        }
+        s
+    }
+
+    #[test]
+    fn the_main_output_starts_at_its_chosen_device_channel_when_it_fits() {
+        assert_eq!(main_first_channel(&session_at(2), 2, 8), 2);
+        assert_eq!(main_first_channel(&session_at(0), 2, 8), 0);
+        assert_eq!(main_first_channel(&session_at(6), 2, 8), 6);
+    }
+
+    #[test]
+    fn a_path_that_does_not_fit_the_device_plays_from_channel_one() {
+        assert_eq!(main_first_channel(&session_at(7), 2, 8), 0);
+        assert_eq!(main_first_channel(&session_at(2), 2, 2), 0);
+    }
+
+    #[test]
+    fn frames_carry_the_channels_from_the_chosen_device_channel_and_are_silent_elsewhere() {
+        let mut frame = [9.0f32; 6];
+        write_frame(&mut frame, 6, 2, 2, true, &[], |c| if c == 0 { 0.25 } else { 0.5 });
+        assert_eq!(frame, [0.0, 0.0, 0.25, 0.5, 0.0, 0.0]);
+        write_frame(&mut frame, 6, 2, 0, true, &[], |c| if c == 0 { 0.25 } else { 0.5 });
+        assert_eq!(frame, [0.25, 0.5, 0.0, 0.0, 0.0, 0.0]);
+        write_frame(&mut frame, 6, 2, 2, false, &[], |_| 1.0);
+        assert_eq!(frame, [0.0; 6]);
+    }
 }

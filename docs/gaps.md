@@ -46,7 +46,7 @@ When you close a gap, delete its entry (or shrink it) in the same PR, and bump t
   device, sample rate and device buffer size (kept with the preferences, per machine; `ui.audio_device`
   for agents); f32 and 16/32-bit integer devices; ASIO behind the opt-in `asio` build feature
   (verified on Windows with an SSL 2+ at 128 samples).
-- **Missing:** routing to physical channels (I/O Setup), one duplex stream on one clock (input and
+- **Missing:** routing of output paths other than the main one to physical channels (the main path follows its first channel since 2026-10-28), one duplex stream on one clock (input and
   output are still separate cpal streams), loopback measurement of the true round trip (reported latencies and a manual record offset are used since 2026-10-28), ASIO
   in official builds (owner decision: Steinberg's SDK is proprietary or GPLv3), JACK, and
   verification on macOS and Linux. The mix still runs in fixed 512-sample blocks.
