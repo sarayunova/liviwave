@@ -48,3 +48,4 @@ here. The subset uses default_fonts; the parent face uses monochrome_emoji_fonts
 | `assets/app-icon/liviwave.ico` | LiVi Wave contributors | cropped from the owner's generated image (see source row above) | MIT OR Apache-2.0 |
 | `assets/app-icon/hicolor/` | LiVi Wave contributors | cropped from the owner's generated image (see source row above) (16–512 px PNGs and the scalable SVG) | MIT OR Apache-2.0 |
 | `docs/images/` | LiVi Wave contributors | screenshots of LiVi Wave rendered from the synthesised demo session | MIT OR Apache-2.0 |
+| `crates/audio-io/tests/fixtures/` | LiVi Wave contributors | original test tones and silence generated with ffmpeg (sine) or by hand; commands in `crates/audio-io/tests/fixtures/README.md` | MIT OR Apache-2.0 |

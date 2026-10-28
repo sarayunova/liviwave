@@ -16,8 +16,11 @@ asio = ["liviwave-playback/asio"]
 
 [dependencies]
 liviwave-engine.workspace = true
+liviwave-audio-io.workspace = true
 liviwave-ui-egui.workspace = true
 liviwave-playback.workspace = true
+liviwave-automation.workspace = true
+clap.workspace = true
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11", "links", "clipboard"] }
 egui = { workspace = true, features = ["default_fonts", "monochrome_emoji_fonts"] }
 serde_json.workspace = true

@@ -156,7 +156,7 @@ error only.
 | Variable | Effect |
 |---|---|
 | `RUST_LOG` | Log levels for standard error and the log file. Default: `info` for LiVi Wave's own crates, `warn` for everything else. env_logger-style directives replace that, e.g. `RUST_LOG=debug`, `RUST_LOG=warn,liviwave_mix=trace` or `RUST_LOG=info,wgpu_core=warn`; a directive ending in `*` covers every target starting with it (`liviwave*=debug`). |
-| `LIVIWAVE_NO_PREFS` | No preferences read or written and no log file (agents' test runs). |
+| `LIVIWAVE_NO_PREFS` | `1`: no preferences read or written and no log file (agents' test runs). |
 
 The realtime audio thread never writes a record itself: the logger keeps the first one it logs
 (without waiting or allocating), counts the rest, and the UI thread writes them. The logger is
@@ -188,8 +188,9 @@ claude mcp add liviwave -- liviwave-cli mcp --demo
 liviwave-cli mcp --automation-read-root DIR --automation-write-root DIR
 ```
 
-See [`docs/control-protocol.md`](docs/control-protocol.md) and [`docs/mcp.md`](docs/mcp.md).
-`liviwave-cli commands` lists every command.
+See [`docs/cli.md`](docs/cli.md) for the command-line tool (subcommands, exit codes, environment
+variables, man pages and completions), [`docs/control-protocol.md`](docs/control-protocol.md) and
+[`docs/mcp.md`](docs/mcp.md). `liviwave-cli commands` lists every command.
 
 Open **LiVi Wave › Session Audio Health** to check loaded audio availability, sample-rate
 mismatches and clip source bounds across all playlists, including alternate takes. The report
@@ -301,7 +302,7 @@ RISC-V (riscv64): `liviwave-<ver>-linux-riscv64.tar.gz`, a tarball only (glibc 2
 LiVi Wave is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
 Copyright (c) 2026 ArtCraft Team and the LiVi Wave contributors. Required notices are in [NOTICE](NOTICE).
 
-LiVi Wave is based on [SoundCraft](https://github.com/storytold/soundcraft) by the ArtCraft team.
+LiVi Wave is based on [LiVi Wave](https://github.com/storytold/soundcraft) by the ArtCraft team.
 
 Bundled fonts, icons, images and other assets keep their own open licenses; each one is listed
 with its author, source and license in [ATTRIBUTION.md](ATTRIBUTION.md).

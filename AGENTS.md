@@ -65,5 +65,8 @@ Parity is measured, not guessed: `crates/engine/catalog/menus.txt` lists the inc
 ## Release
 Push to the `release` branch to build signed installers for macOS (universal DMG), Windows (x64/x86 MSI + zip), Linux (AppImage, deb, rpm, tar.gz, Flatpak; riscv64 tar.gz), FreeBSD and Web (wasm zip). Version: `cargo xtask version [set X.Y.Z]`. See `docs/release-playbook.md` and craftrules `release/playbook.md`.
 
+## Upstream
+LiVi Wave tracks the original SoundCraft project: `scripts/sync-upstream.sh` merges it and re-applies the rename (`docs/upstream-sync.md`). Never run a blanket find-and-replace for `soundcraft`; `scripts/rename-rules.pl` knows which names belong to other projects.
+
 ## Roadmap
 `ROADMAP.md` (committed) is the one-page summary (stage, numbers, dimensions, languages, progress log); milestones live in `docs/roadmap.md`. Update both whenever a milestone lands, and close or shrink the matching `docs/gaps.md` entry.

@@ -1,7 +1,8 @@
 # MCP server
 
 LiVi Wave speaks the [Model Context Protocol](https://modelcontextprotocol.io) over stdio, so
-Claude and other agents can make music with it.
+Claude and other agents can make music with it. The server is the `mcp` subcommand of
+`liviwave-cli`, which [docs/cli.md](cli.md) describes.
 
 ```sh
 liviwave-cli mcp                    # headless engine (no window, no audio device)

@@ -21,10 +21,17 @@ KEEP_DELETED='^(docs/brand/|\.github/dependabot\.yml$|\.coderabbit\.yaml$)'
 SUITE_FILES='^(packaging/windows/|docs/releasing\.md$|\.github/workflows/windows-arm64\.yml$)'
 
 rename_pass() {
-  local f
+  local f bad
+  # Never finish with conflict markers in a file.
+  bad="$(git diff HEAD --name-only --diff-filter=AMR | while IFS= read -r f; do [[ -f "$f" ]] && grep -lE '^(<<<<<<<|>>>>>>>) ' "$f" 2>/dev/null; done || true)"
+  if [[ -n "$bad" ]]; then
+    echo; echo "error: conflict markers left in:"; echo "$bad" | sed 's/^/   /'
+    echo "resolve them, git add the files, then run scripts/sync-upstream.sh --continue"; exit 2
+  fi
   git diff HEAD --name-only --diff-filter=AMR | while IFS= read -r f; do
     [[ -f "$f" ]] || continue
-    case "$f" in *.png|*.ico|*.icns|*.tiff|*.DS_Store|contributors/contributors.json|Cargo.lock|ATTRIBUTION.md) continue ;; esac
+    # scripts/ holds the rename rules themselves: the pass must never rewrite them.
+    case "$f" in scripts/*|*.png|*.ico|*.icns|*.tiff|*.DS_Store|contributors/contributors.json|Cargo.lock|ATTRIBUTION.md) continue ;; esac
     perl -i -p scripts/rename-rules.pl "$f"
     if [[ "$f" =~ $SUITE_FILES ]]; then perl -i -pe 's/ArtCraft/LiVi/g' "$f"; fi
   done
@@ -33,6 +40,8 @@ rename_pass() {
     n="$(echo "$f" | sed 's/soundcraft/liviwave/g;s/SoundCraft/LiViWave/g')"
     mkdir -p "$(dirname "$n")"; git mv "$f" "$n"
   done || true
+  # Moving a new file out of an old directory can leave it empty; the `apps/*` glob would then trip on it.
+  find apps crates -type d -empty -delete 2>/dev/null || true
   # Cargo.lock: let cargo rewrite the package names.
   cargo metadata --format-version 1 >/dev/null 2>&1 || true
   cargo fmt
@@ -50,6 +59,15 @@ report() {
   echo; git diff --cached --stat HEAD | tail -1
   echo "next: cargo xtask ci, then commit, then: git checkout main && git merge --ff-only $(git branch --show-current)"
 }
+
+if [[ "${1:-}" == "--theirs" ]]; then   # resolve conflict hunks in the given files by taking upstream's side
+  shift
+  for f in "$@"; do
+    perl -0 -i -pe 's/<<<<<<< [^\n]*\n.*?=======\n(.*?)>>>>>>> [^\n]*\n/$1/gs' "$f"
+    git add -- "$f"; echo "took upstream's side: $f"
+  done
+  exit 0
+fi
 
 if [[ "${1:-}" == "--continue" ]]; then
   if git ls-files -u | grep -q .; then echo "error: unresolved conflicts remain:" >&2; git ls-files -u | cut -f2 | sort -u >&2; exit 1; fi

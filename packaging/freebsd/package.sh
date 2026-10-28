@@ -2,8 +2,8 @@
 # Build and package LiVi Wave for FreeBSD:
 #
 #   $DIST/liviwave-<version>-freebsd-x86_64.tar.gz   a /usr/local-style tree:
-#       liviwave-<version>-freebsd-x86_64/{bin, share/applications, share/icons, share/mime,
-#       share/metainfo, share/doc/liviwave}
+#       liviwave-<version>-freebsd-x86_64/{bin, man/man1, share/applications, share/icons,
+#       share/mime, share/metainfo, share/doc/liviwave, share/{bash-completion,zsh,fish}}
 #
 # Install by copying the tree's contents into /usr/local, e.g.
 #   tar -xzf liviwave-*-freebsd-x86_64.tar.gz --strip-components 1 -C /usr/local
@@ -55,8 +55,16 @@ BASENAME="liviwave-$VERSION-freebsd-$ARCH"
 
 echo "==> LiVi Wave $VERSION for FreeBSD $ARCH"
 
+# The man-and-completions example is built with the binaries: it writes liviwave-cli's man pages
+# and shell completions below. A cross build's example cannot run here, so it is built again for
+# this machine (the pages and completions do not depend on the target).
 if [[ "$SKIP_BUILD" = 0 ]]; then
-  (cd "$ROOT" && cargo build --release --locked -p liviwave -p liviwave-cli)
+  (cd "$ROOT" && cargo build --release --locked -p liviwave -p liviwave-cli \
+    --bins --example man-and-completions)
+  if [[ -n "${CARGO_BUILD_TARGET:-}" ]]; then
+    (cd "$ROOT" && env -u CARGO_BUILD_TARGET cargo build --release --locked -p liviwave-cli \
+      --example man-and-completions)
+  fi
 fi
 # Cargo puts a cross build under target/<triple>/release.
 BIN="$CARGO_TARGET_DIR/${CARGO_BUILD_TARGET:+$CARGO_BUILD_TARGET/}release"
@@ -76,6 +84,20 @@ sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$LIVIWAVE_BUILD_DATE/g" \
   "$LINUX/$APP_ID.metainfo.xml.in" >"$STAGE/share/metainfo/$APP_ID.metainfo.xml"
 cp -R "$ROOT/assets/app-icon/hicolor" "$STAGE/share/icons/"
 copy_docs "$STAGE/share/doc/liviwave"
+# liviwave-cli's man pages and shell completions, from its clap definition, written by the
+# example built above.
+CLI_DOCS="$CARGO_TARGET_DIR/release/examples/man-and-completions"
+if [[ ! -x "$CLI_DOCS" ]]; then
+  echo "error: $CLI_DOCS is missing: build it with the binaries (without --skip-build)" >&2
+  exit 1
+fi
+"$CLI_DOCS" "$WORK/cli-docs"
+mkdir -p "$STAGE/man/man1" "$STAGE/share/bash-completion/completions" \
+  "$STAGE/share/zsh/site-functions" "$STAGE/share/fish/vendor_completions.d"
+install -m 644 "$WORK"/cli-docs/*.1 "$STAGE/man/man1/"
+install -m 644 "$WORK/cli-docs/liviwave-cli.bash" "$STAGE/share/bash-completion/completions/liviwave-cli"
+install -m 644 "$WORK/cli-docs/_liviwave-cli" "$STAGE/share/zsh/site-functions/_liviwave-cli"
+install -m 644 "$WORK/cli-docs/liviwave-cli.fish" "$STAGE/share/fish/vendor_completions.d/liviwave-cli.fish"
 
 # ---- .tar.gz -------------------------------------------------------------------------------------
 tar -C "$WORK" -czf "$DIST/$BASENAME.tar.gz" "$BASENAME"

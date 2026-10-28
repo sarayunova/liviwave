@@ -7,7 +7,7 @@ input), and every command is reachable from:
 | Surface | How |
 |---|---|
 | Desktop app control channel | `liviwave --control <port>` (`0` = pick a free port; printed as `LIVIWAVE_CONTROL_PORT=…`) |
-| CLI against a running app | `liviwave-cli app --port <port> <method or command id> [JSON]` |
+| CLI against a running app | `liviwave-cli app --port <port> <method or command id> [JSON]` (see [cli.md](cli.md)) |
 | Headless CLI | `liviwave-cli run --demo --cmd 'mix.volume={"track":"Kick","db":-6}' --bounce out.wav` |
 | MCP (headless) | `liviwave-cli mcp [--demo]` |
 | MCP (bridged to the app) | `liviwave-cli mcp --connect <port>` |
