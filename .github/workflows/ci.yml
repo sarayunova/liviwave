@@ -1,27 +1,37 @@
 name: CI
 
-# Quality gates for every push to main and every pull request (`cargo xtask ci`), through the
-# suite's shared gate workflow in craft-common-actions.
+# The quality gate (`cargo xtask ci`) on a self-hosted runner (label `liviwave-local`), so it costs
+# no GitHub-hosted minutes. Start the runner first (see docs/self-hosted-runner.md); while it is
+# offline the job waits in the queue. Pushes to main and manual runs only.
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# A newer push to a PR branch cancels its older run; every push to main runs to the end.
 concurrency:
-  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   gate:
-    # Tracks @main so suite-wide CI fixes reach every app without a PR in each repository.
-    uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
-    with:
-      packages: >-
-        pkg-config libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev libxcursor-dev
-        libxrandr-dev libxi-dev libfontconfig1-dev libfreetype-dev mesa-vulkan-drivers
-        libgl1-mesa-dev libasound2-dev
+    runs-on: [self-hosted, Windows, liviwave-local]
+    timeout-minutes: 120
+    env:
+      CARGO_TERM_COLOR: never
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # LIVIWAVE_VCVARS (the Visual Studio x64 environment script) and CARGO_TARGET_DIR (the
+      # persistent build cache) come from the runner's own .env file, not from this repository.
+      - name: cargo xtask ci
+        shell: cmd
+        run: |
+          call "%LIVIWAVE_VCVARS%" >nul || exit /b 1
+          cargo xtask ci
