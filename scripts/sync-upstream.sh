@@ -30,7 +30,7 @@ rename_pass() {
   done
   # New upstream files whose names carry the old one.
   git ls-files | grep -i soundcraft | while IFS= read -r f; do
-    n="$(dirname "$f")/$(basename "$f" | sed 's/soundcraft/liviwave/g;s/SoundCraft/LiViWave/g')"
+    n="$(echo "$f" | sed 's/soundcraft/liviwave/g;s/SoundCraft/LiViWave/g')"
     mkdir -p "$(dirname "$n")"; git mv "$f" "$n"
   done || true
   # Cargo.lock: let cargo rewrite the package names.
