@@ -5,6 +5,11 @@ use crate::SoundApp;
 #[cfg(not(target_arch = "wasm32"))]
 use craft_update::updater::{Action, Status, Updater};
 
+/// This app's own update entry (releases of its GitHub repository); `craft-libs` only knows the
+/// original SoundCraft entry.
+#[cfg(not(target_arch = "wasm32"))]
+pub const LIVIWAVE: craft_update::App = craft_update::App::new("liviwave", "LiVi Wave", "Recording, editing and mixing audio", "sarayunova/liviwave");
+
 pub(crate) struct Runtime {
     #[cfg(not(target_arch = "wasm32"))]
     updater: Updater,
@@ -21,7 +26,7 @@ impl Default for Runtime {
     fn default() -> Self {
         Self {
             #[cfg(not(target_arch = "wasm32"))]
-            updater: Updater::new(&craft_update::suite::SOUNDCRAFT, env!("CARGO_PKG_VERSION")),
+            updater: Updater::new(&LIVIWAVE, env!("CARGO_PKG_VERSION")),
             #[cfg(not(target_arch = "wasm32"))]
             startup_check: false,
             #[cfg(not(target_arch = "wasm32"))]

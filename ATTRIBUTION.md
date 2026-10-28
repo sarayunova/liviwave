@@ -41,6 +41,7 @@ here. The subset uses default_fonts; the parent face uses monochrome_emoji_fonts
 | `assets/app-icon/source/liviwave-icon-source.png` | LiVi Wave owner (generated with Google Gemini from the owner's prompt) | original; the full generated banner the icons are cropped from | MIT OR Apache-2.0, as released by the owner |
 | `assets/app-icon/icon.svg` | LiVi Wave owner | cropped from the source image above (SVG wrapper around a 512 px PNG) | MIT OR Apache-2.0, as released by the owner |
 | `packaging/macos/dmg/` (all files) | @XusBadia | original (macOS DMG window background and layout, from the app icon; see `packaging/macos/dmg/README.md`) | MIT OR Apache-2.0 |
+| `packaging/macos/dmg/background.svg` (outlined glyphs only) | Inter: The Inter Project Authors (rsms); JetBrains Mono: The JetBrains Mono Project Authors | https://github.com/rsms/inter ; https://github.com/JetBrains/JetBrainsMono; text converted to vector outlines, no font file is bundled | SIL OFL-1.1 |
 | `assets/app-icon/liviwave-1024.png` | LiVi Wave contributors | cropped from the owner's generated image (see source row above) | MIT OR Apache-2.0 |
 | `assets/app-icon/liviwave-macos-512.png` | LiVi Wave contributors | cropped from the owner's generated image (see source row above) | MIT OR Apache-2.0 |
 | `assets/app-icon/liviwave.icns` | LiVi Wave contributors | cropped from the owner's generated image (see source row above) | MIT OR Apache-2.0 |
