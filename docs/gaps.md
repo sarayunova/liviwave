@@ -47,7 +47,7 @@ When you close a gap, delete its entry (or shrink it) in the same PR, and bump t
   for agents); f32 and 16/32-bit integer devices; ASIO behind the opt-in `asio` build feature
   (verified on Windows with an SSL 2+ at 128 samples).
 - **Missing:** routing to physical channels (I/O Setup), one duplex stream on one clock (input and
-  output are still separate cpal streams), latency reporting and record-offset compensation, ASIO
+  output are still separate cpal streams), input latency and record-offset compensation (output latency is shown since 2026-10-28), ASIO
   in official builds (owner decision: Steinberg's SDK is proprietary or GPLv3), JACK, and
   verification on macOS and Linux. The mix still runs in fixed 512-sample blocks.
   `setup.playback_engine` still stores `device`/`buffer_size` in the session, unused.
