@@ -85,6 +85,18 @@ renamed() {  # renamed REF OLDPATH NEWPATH
 }
 git ls-files -u | cut -f2 | sort -u | while IFS= read -r f; do
   old="$(echo "$f" | sed 's/liviwave/soundcraft/g;s/LiViWave/SoundCraft/g')"
+  stages="$(git ls-files -u -- "$f" | awk '{print $3}' | sort -u | tr -d '\n')"
+  if [[ "$f" == "Cargo.lock" ]]; then   # cargo rewrites it in the rename pass
+    git checkout --ours -- Cargo.lock && git add Cargo.lock; echo "kept ours (cargo rewrites it below): Cargo.lock"; continue
+  elif [[ "$stages" == "3" ]]; then     # only upstream has it: a new file
+    git show ":3:$f" | perl -p scripts/rename-rules.pl > "$f"
+    if [[ "$f" =~ $SUITE_FILES ]]; then perl -i -pe 's/ArtCraft/LiVi/g' "$f"; fi
+    git add -- "$f"; echo "new upstream file: $f"; continue
+  elif [[ "$stages" == "12" ]]; then    # upstream deleted it; ours is only the rename of the base
+    if [[ "$(renamed "$base" "$old" "$f" | git hash-object --stdin)" == "$(git show ":2:$f" | git hash-object --stdin)" ]]; then
+      git rm -q -f -- "$f"; echo "deleted upstream: $f"; continue
+    fi
+  fi
   if git cat-file -e "$base:$old" 2>/dev/null && git cat-file -e "$UP:$old" 2>/dev/null && git cat-file -e "HEAD:$f" 2>/dev/null; then
     tmp="$(mktemp -d)"
     git show "HEAD:$f" > "$tmp/ours"
