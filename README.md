@@ -145,12 +145,12 @@ where things are.
 
 ## Getting started
 
-Download a build from the [releases page](https://github.com/storytold/soundcraft/releases), or build
+Download a build from the [releases page](https://github.com/sarayunova/liviwave/releases), or build
 from source with Rust 1.95 or later for the desktop/web UI (the core workspace's declared
 minimum remains Rust 1.90):
 
 ```sh
-git clone https://github.com/storytold/soundcraft
+git clone https://github.com/sarayunova/liviwave
 cd liviwave
 cargo run --release -p liviwave -- --demo     # opens the demo song
 ```
@@ -262,7 +262,7 @@ very welcome, in the issues or on Discord.
 
 ## Downloads
 
-**Download LiVi Wave** from GitHub: the [latest release](https://github.com/storytold/soundcraft/releases/latest) has every build listed below, and [all releases](https://github.com/storytold/soundcraft/releases) have earlier versions and their notes. `<ver>` in the file names is the version number, and `SHA256SUMS.txt` lists a checksum for every file.
+**Download LiVi Wave** from GitHub: the [latest release](https://github.com/sarayunova/liviwave/releases/latest) has every build listed below, and [all releases](https://github.com/sarayunova/liviwave/releases) have earlier versions and their notes. `<ver>` in the file names is the version number, and `SHA256SUMS.txt` lists a checksum for every file.
 
 ### Windows
 
@@ -339,7 +339,7 @@ stand on its own.
 | <img src="https://raw.githubusercontent.com/storytold/pdfcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.pdfcraft.png" alt="" width="32" height="32"> | **PdfCraft** | Reading, organizing and protecting PDFs | [GitHub](https://github.com/storytold/pdfcraft) | [Website](https://getartcraft.com/apps/pdfcraft) |
 | <img src="https://raw.githubusercontent.com/storytold/effectcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.effectcraft.png" alt="" width="32" height="32"> | **EffectCraft** | Motion graphics and visual effects | [GitHub](https://github.com/storytold/effectcraft) | [Website](https://getartcraft.com/apps/effectcraft) |
 | <img src="https://raw.githubusercontent.com/storytold/designcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.designcraft.png" alt="" width="32" height="32"> | **DesignCraft** | Page layout and publishing | [GitHub](https://github.com/storytold/designcraft) | [Website](https://getartcraft.com/apps/designcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/soundcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.liviwave.png" alt="" width="32" height="32"> | **LiVi Wave** | **Recording, editing and mixing audio · you are here** | [GitHub](https://github.com/storytold/soundcraft) | [Website](https://getartcraft.com/apps/liviwave) |
+| <img src="https://raw.githubusercontent.com/sarayunova/liviwave/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.liviwave.png" alt="" width="32" height="32"> | **LiVi Wave** | **Recording, editing and mixing audio · you are here** | [GitHub](https://github.com/sarayunova/liviwave) | [Website](https://getartcraft.com/apps/liviwave) |
 
 And [**ArtCraft**](https://getartcraft.com/) itself, our AI image and video studio for artists who want real control.
 

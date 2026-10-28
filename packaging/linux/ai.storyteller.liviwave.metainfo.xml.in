@@ -27,8 +27,8 @@
   <icon type="stock">ai.storyteller.liviwave</icon>
   <!-- Only url types known to appstream 0.15 (Ubuntu 22.04, where CI validates): no vcs-browser. -->
   <url type="homepage">https://getartcraft.com/apps/liviwave</url>
-  <url type="bugtracker">https://github.com/storytold/soundcraft/issues</url>
-  <url type="help">https://github.com/storytold/soundcraft</url>
+  <url type="bugtracker">https://github.com/sarayunova/liviwave/issues</url>
+  <url type="help">https://github.com/sarayunova/liviwave</url>
   <url type="contact">https://discord.gg/artcraft</url>
   <categories>
     <category>AudioVideo</category>
@@ -44,7 +44,7 @@
   <screenshots>
     <screenshot type="default">
       <caption>Mixer with channel strips, sends, faders and an equalizer</caption>
-      <image type="source" width="2400" height="1500">https://raw.githubusercontent.com/storytold/soundcraft/main/docs/images/mix.png</image>
+      <image type="source" width="2400" height="1500">https://raw.githubusercontent.com/sarayunova/liviwave/main/docs/images/mix.png</image>
     </screenshot>
   </screenshots>
   <branding>
