@@ -528,6 +528,17 @@ mod tests {
     }
 
     #[test]
+    fn a_track_routes_to_an_output_path_by_name_without_making_a_bus() {
+        let mut e = crate::demo::demo_engine();
+        e.execute("setup.io", &json!({"action": "create_output", "name": "Out 3-4", "first_channel": 2})).unwrap();
+        let buses = e.session().busses.len();
+        let track = e.session().tracks.iter().find(|t| t.kind == liviwave_model::TrackKind::Audio).map(|t| t.id).unwrap();
+        e.execute("track.output", &json!({"tracks": [track.0], "output": "out 3-4"})).unwrap();
+        assert_eq!(e.session().track(track).unwrap().mixer.output, Route::Hardware("Out 3-4".into()));
+        assert_eq!(e.session().busses.len(), buses);
+    }
+
+    #[test]
     fn io_bus_lifecycle() {
         let mut e = crate::demo::demo_engine();
         e.execute("setup.io", &json!({"action": "create_bus", "name": "Drums"})).unwrap();

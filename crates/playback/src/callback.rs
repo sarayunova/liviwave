@@ -231,6 +231,7 @@ impl AudioState {
             for c in &mut self.pending {
                 c.iter_mut().for_each(|x| *x = 0.0);
             }
+            self.mix.silence_extra_outputs();
             self.pending_len = BLOCK;
             return;
         }
@@ -316,6 +317,18 @@ impl AudioState {
                 a * (1.0 - fr) + b * fr
             };
             write_frame(frame, channels, nch, first, sounding, &self.fold, sample);
+            if sounding {
+                // The other output paths (I/O Setup) play on their own device channels, resampled
+                // like the main mix; a path that shares channels with another one is summed.
+                for path in self.mix.extra_outputs() {
+                    for (k, ch) in path.buf.iter().enumerate() {
+                        let Some(o) = frame.get_mut(usize::from(path.first_channel) + k) else { break };
+                        let a = ch.get(i0).copied().unwrap_or(0.0);
+                        let b = if i0 + 1 < self.pending_len { ch.get(i0 + 1).copied().unwrap_or(a) } else { a };
+                        *o = out_sample(*o + (a * (1.0 - fr) + b * fr));
+                    }
+                }
+            }
             self.read += step;
         }
     }

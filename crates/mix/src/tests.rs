@@ -1187,3 +1187,30 @@ fn apply_matrix_span_matches_the_plain_per_sample_sum() {
         }
     }
 }
+
+#[test]
+fn a_track_routed_to_another_output_path_plays_there_and_not_on_the_main_mix() {
+    let (mut s, t) = session_with_dc(0.5, 4800);
+    s.outputs.push(liviwave_model::OutputPath { name: "Out 3-4".into(), first_channel: 2, format: ChannelFormat::Stereo });
+    s.track_mut(t).unwrap().mixer.output = Route::Hardware("Out 3-4".into());
+    let mut mix = MixEngine::new(48_000.0, 512);
+    let mut main = vec![vec![0.0f32; 512]; 2];
+    mix.render(&s, 0, 512, &mut main);
+    assert!(main.iter().all(|c| c.iter().all(|x| x.abs() < 1e-6)), "the main mix stays silent");
+    let paths = mix.extra_outputs();
+    assert_eq!((paths.len(), paths[0].name.as_str(), paths[0].first_channel), (1, "Out 3-4", 2));
+    assert!(paths[0].buf.iter().all(|c| c[256].abs() > 0.1), "the path carries the track: {}", paths[0].buf[0][256]);
+    mix.silence_extra_outputs();
+    assert!(mix.extra_outputs()[0].buf.iter().all(|c| c.iter().all(|x| *x == 0.0)));
+}
+
+#[test]
+fn a_route_to_a_missing_output_path_is_silent_and_removing_the_path_drops_its_buffer() {
+    let (mut s, t) = session_with_dc(0.5, 4800);
+    s.track_mut(t).unwrap().mixer.output = Route::Hardware("Out 9-10".into());
+    let mut mix = MixEngine::new(48_000.0, 512);
+    let mut main = vec![vec![0.0f32; 512]; 2];
+    mix.render(&s, 0, 512, &mut main);
+    assert!(mix.extra_outputs().is_empty());
+    assert!(main.iter().all(|c| c.iter().all(|x| x.abs() < 1e-6)));
+}

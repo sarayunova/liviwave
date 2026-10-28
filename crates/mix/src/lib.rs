@@ -108,6 +108,8 @@ pub struct MixEngine {
     busses: HashMap<BusId, BusBuf>,
     main: Vec<Vec<f32>>,
     main_fmt: ChannelFormat,
+    /// The session's output paths after the main one (I/O Setup), each with its mixed block.
+    paths: Vec<OutPathBuf>,
     pub meters: HashMap<TrackId, StripMeter>,
     pub main_meter: StripMeter,
     pub pan_law: PanLaw,
@@ -157,6 +159,7 @@ impl MixEngine {
             busses: HashMap::new(),
             main: vec![vec![0.0; max_block]; MAIN_CHANNELS],
             main_fmt: ChannelFormat::Stereo,
+            paths: Vec::new(),
             meters: HashMap::new(),
             main_meter: StripMeter::default(),
             pan_law: PanLaw::Minus3,
@@ -400,6 +403,12 @@ impl MixEngine {
         }
         self.last_end = pos.saturating_add(frames as i64);
         self.ensure_synced(s);
+        self.sync_paths(s);
+        for p in &mut self.paths {
+            for c in &mut p.buf {
+                c.iter_mut().take(frames).for_each(|x| *x = 0.0);
+            }
+        }
         for b in self.busses.values_mut() {
             for c in b.buf.iter_mut() {
                 c.iter_mut().take(frames).for_each(|x| *x = 0.0);
@@ -636,6 +645,10 @@ impl MixEngine {
         };
         let (dst, dst_fmt) = match &t.mixer.output {
             Route::Main => (&mut self.main, self.main_fmt),
+            Route::Hardware(name) => match self.paths.iter_mut().find(|p| p.name == *name) {
+                Some(p) => (&mut p.buf, p.fmt),
+                None => return,
+            },
             Route::Bus(b) => match self.busses.get_mut(b) {
                 Some(d) => (&mut d.buf, d.fmt),
                 None => return,
@@ -671,3 +684,48 @@ mod click;
 
 #[cfg(test)]
 mod tests;
+
+/// One output path after the main one (I/O Setup): where a track routed to it is mixed, and the
+/// device channel it starts at. The block stays here after `render` for the host to play.
+pub struct OutPathBuf {
+    pub name: String,
+    /// First hardware channel (0-based).
+    pub first_channel: u16,
+    fmt: ChannelFormat,
+    pub buf: Vec<Vec<f32>>,
+}
+
+impl MixEngine {
+    /// The output paths after the main one, as rendered by the last [`MixEngine::render`].
+    pub fn extra_outputs(&self) -> &[OutPathBuf] {
+        &self.paths
+    }
+
+    /// Silence the extra output paths' last block (the host calls it when it renders nothing).
+    pub fn silence_extra_outputs(&mut self) {
+        for p in &mut self.paths {
+            for c in &mut p.buf {
+                c.iter_mut().for_each(|x| *x = 0.0);
+            }
+        }
+    }
+
+    /// Follow the session's output paths: rebuilt only when their names, channels or formats
+    /// change, so a block normally allocates nothing.
+    fn sync_paths(&mut self, s: &Session) {
+        let wanted = s.outputs.iter().skip(1);
+        let same = self.paths.len() == wanted.clone().count()
+            && self.paths.iter().zip(wanted.clone()).all(|(p, o)| p.name == o.name && p.first_channel == o.first_channel && p.fmt == o.format);
+        if same {
+            return;
+        }
+        self.paths = wanted
+            .map(|o| OutPathBuf {
+                name: o.name.clone(),
+                first_channel: o.first_channel,
+                fmt: o.format,
+                buf: vec![vec![0.0; self.max_block]; o.format.channels().clamp(1, MAX_CHANNELS)],
+            })
+            .collect();
+    }
+}

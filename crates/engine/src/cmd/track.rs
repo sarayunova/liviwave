@@ -956,8 +956,14 @@ pub(crate) fn parse_route(s: &liviwave_model::Session, v: &str) -> Route {
     match v.to_ascii_lowercase().as_str() {
         "" | "none" | "no input" | "no output" => Route::None,
         "main" | "out 1-2" | "master" => Route::Main,
-        _ => s.bus_by_name(v).map_or_else(|| Route::Hardware(v.to_string()), |b| Route::Bus(b.id)),
+        _ => s.bus_by_name(v).map_or_else(|| Route::Hardware(output_path_name(s, v).unwrap_or(v).to_string()), |b| Route::Bus(b.id)),
     }
+}
+
+/// The name of the I/O Setup output path `v` means (any letter case), so a route keeps the path's
+/// own spelling.
+fn output_path_name<'a>(s: &'a liviwave_model::Session, v: &str) -> Option<&'a str> {
+    s.outputs.iter().map(|o| o.name.as_str()).find(|n| n.eq_ignore_ascii_case(v))
 }
 
 fn route(e: &mut Engine, p: &Value, input: bool) -> Result<Value> {
@@ -970,6 +976,7 @@ fn route(e: &mut Engine, p: &Value, input: bool) -> Result<Value> {
     if let Route::Hardware(name) = &r
         && create_bus
         && !name.to_ascii_lowercase().starts_with("in ")
+        && output_path_name(s, name).is_none()
     {
         let fmt = tracks
             .first()
