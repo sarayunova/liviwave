@@ -91,7 +91,7 @@ renamed() {  # renamed REF OLDPATH NEWPATH: that version of the file with the re
 }
 
 # Conflicts we know how to settle: deletions we made on purpose, and files we renamed.
-git status --porcelain | grep -E '^(DU|UD|AU|UA) ' | cut -c4- | while IFS= read -r f; do
+{ git status --porcelain | grep -E '^(DU|UD|AU|UA) ' || true; } | cut -c4- | while IFS= read -r f; do
   if [[ "$f" =~ $KEEP_DELETED ]]; then git rm -q -f -- "$f"; echo "kept deleted: $f"
   elif [[ "$f" == *soundcraft* || "$f" == *SoundCraft* ]]; then   # we renamed it; upstream edited the old path
     n="$(echo "$f" | sed 's/soundcraft/liviwave/g;s/SoundCraft/LiViWave/g')"
