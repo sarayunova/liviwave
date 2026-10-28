@@ -31,5 +31,5 @@ jobs:
     with:
       app-name: liviwave
       app-dir: LiVi Wave
-      install-relative-path: Programs/ArtCraft/LiVi Wave
+      install-relative-path: Programs/LiVi/LiVi Wave
       install-scope: perUser

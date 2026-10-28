@@ -14,7 +14,7 @@ section: sound
 priority: optional
 maintainer: ${LIVIWAVE_MAINTAINER}
 vendor: Learning Machines LLC
-homepage: https://getartcraft.com/apps/liviwave
+homepage: https://github.com/sarayunova/liviwave
 license: MIT OR Apache-2.0
 description: |-
   Open-source, native digital audio workstation. Record, edit and mix

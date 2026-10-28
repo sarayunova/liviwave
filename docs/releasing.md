@@ -121,7 +121,7 @@ nor the portable zip needs the Visual C++ redistributable.
 - The script checks both PE headers: the machine type matches `-Arch`, `liviwave.exe` is a GUI
   app (no console window) and `liviwave-cli.exe` a console app.
 - `liviwave.wxs` (WiX v5) is a dual-scope package (per-user by default into
-  `%LOCALAPPDATA%\Programs\ArtCraft\LiVi Wave`, per-machine into `Program Files\ArtCraft\LiVi Wave` (`Program Files (x86)` for the 32-bit build),
+  `%LOCALAPPDATA%\Programs\LiVi\LiVi Wave`, per-machine into `Program Files\LiVi\LiVi Wave` (`Program Files (x86)` for the 32-bit build),
   see `packaging/windows/INSTALLATION.md`) with an advertised Start
   Menu shortcut. LiVi Wave becomes the default app for `.scraft` and is listed under *Open with*
   for `.wav`, `.aif`, `.aiff`, `.flac`, `.mp3`, `.mid` and `.midi`. It also registers App Paths

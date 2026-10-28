@@ -38,14 +38,6 @@ here. The subset uses default_fonts; the parent face uses monochrome_emoji_fonts
 
 | Path | Author | Source | License |
 |---|---|---|---|
-| `docs/brand/artcraft-logo.svg` | ArtCraft Team | craftrules `assets/brand/` | ArtCraft brand terms (`docs/brand/LICENSE-brand.txt`) |
-| `docs/brand/artcraft-logo.png` | ArtCraft Team | craftrules `assets/brand/` | ArtCraft brand terms |
-| `docs/brand/artcraft-logo-white.svg` | ArtCraft Team | craftrules `assets/brand/` | ArtCraft brand terms |
-| `docs/brand/artcraft-logo-white.png` | ArtCraft Team | craftrules `assets/brand/` | ArtCraft brand terms |
-| `docs/brand/artcraft-mark.svg` | ArtCraft Team | craftrules `assets/brand/` | ArtCraft brand terms |
-| `docs/brand/artcraft-mark.png` | ArtCraft Team | craftrules `assets/brand/` | ArtCraft brand terms |
-| `docs/brand/artcraft-mark-black.svg` | ArtCraft Team | craftrules `assets/brand/` | ArtCraft brand terms |
-| `docs/brand/artcraft-mark-black.png` | ArtCraft Team | craftrules `assets/brand/` | ArtCraft brand terms |
 | `assets/app-icon/source/liviwave-icon-source.png` | LiVi Wave owner (generated with Google Gemini from the owner's prompt) | original; the full generated banner the icons are cropped from | MIT OR Apache-2.0, as released by the owner |
 | `assets/app-icon/icon.svg` | LiVi Wave owner | cropped from the source image above (SVG wrapper around a 512 px PNG) | MIT OR Apache-2.0, as released by the owner |
 | `packaging/macos/dmg/` (all files) | @XusBadia | original (macOS DMG window background and layout, from the app icon; see `packaging/macos/dmg/README.md`) | MIT OR Apache-2.0 |

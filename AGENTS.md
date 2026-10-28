@@ -1,12 +1,10 @@
 # LiVi Wave — instructions for agents
 
-LiVi Wave is a clean-room, open-source, pure-Rust digital audio workstation targeting Avid Pro Tools parity — and superiority (speed, openness, agent control). It runs natively on macOS, Windows, Linux and FreeBSD, and on the web via WASM. Siblings with the same conventions: `../photocraft` (Photoshop), `../vectorcraft` (Illustrator), `../filmcraft` (Premiere), `../lightcraft` (Lightroom), `../pdfcraft` (Acrobat), `../effectcraft` (After Effects), `../designcraft` (InDesign).
-
-Standards and learnings shared across the crafting apps live in `../../craftrules` (checked out next to the craft-apps folder, or `storytold/craftrules`). Read its `AGENTS.md` at the start of a session, follow its standards, and contribute reusable learnings back there. Never code: repos don't share code.
+LiVi Wave is a clean-room, open-source, pure-Rust digital audio workstation targeting Avid Pro Tools parity — and superiority (speed, openness, agent control). It runs natively on macOS, Windows, Linux and FreeBSD, and on the web via WASM. 
 
 ## Start every session here
 1. Read `plan/STATUS.md` (current milestone, next task) and `plan/execution-plan.md`. `plan/` is gitignored (local only). Behaviour reference: `plan/protools/` (observed menu tree `menus-clean.txt` and screenshots; never committed).
-2. Read `ROADMAP.md` (committed) for stage, status and the parity numbers; pick work from `docs/gaps.md`. The progress docs follow craftrules `standards/progress-docs.md`: `docs/target-app-parity.md` (assessment), `docs/gaps.md`, `docs/roadmap.md`, `docs/ui-parity.md`, `docs/file-format-parity.md`, `docs/hardware-parity.md`, `docs/plugin-parity.md`, `docs/localization-parity.md`; `docs/parity-checklist.md` is generated. Update their timestamps and revision history when you change them.
+2. Read `ROADMAP.md` (committed) for stage, status and the parity numbers; pick work from `docs/gaps.md`. The progress docs: `docs/target-app-parity.md` (assessment), `docs/gaps.md`, `docs/roadmap.md`, `docs/ui-parity.md`, `docs/file-format-parity.md`, `docs/hardware-parity.md`, `docs/plugin-parity.md`, `docs/localization-parity.md`; `docs/parity-checklist.md` is generated. Update their timestamps and revision history when you change them.
 3. Work autonomously; don't stop to ask unless a decision is genuinely the user's.
 
 ## ⚠️ Assets: the absolute rule
@@ -16,7 +14,6 @@ Standards and learnings shared across the crafting apps live in `../../craftrule
 - **Every bundled asset gets a row in [`ATTRIBUTION.md`](ATTRIBUTION.md)** (path, author, source, license) in the same commit that adds it. `cargo xtask assets` enforces this; CI fails otherwise.
 - Never copy files out of the Pro Tools bundle (`/Applications/Pro Tools.app`): no plugins, presets, icons, sounds, session templates or text. Observing the running app (screenshots kept under `plan/`, menu names) is fine; copying its resources is not.
 - Demo audio is synthesised in code (`crates/engine/src/demo.rs`). Demo and README media must be ours or public domain.
-- The ArtCraft trademarks in `docs/brand/` are the only exception, under `docs/brand/LICENSE-brand.txt`.
 
 ## Clean-room
 Pro Tools is installed on the dev machine and may be *observed* black-box: run it, use its UI with synthetic sessions, take screenshots by window id (`screencapture -l <id>`), stored only under `plan/protools/screenshots/`. Never read, disassemble or copy anything inside the Pro Tools bundle; never copy Avid icons, artwork, plugin names, presets, or wording beyond feature names. Never copy GPL/AGPL/LGPL code (Ardour, Audacity, LMMS, Freeverb sources…). Our plugins have our own names.
@@ -33,7 +30,6 @@ People trust LiVi Wave with their recordings; a crash loses takes. **This outran
 - Every production crate root carries `#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]`.
 - `Engine::execute` catches escaped panics and restores the document. Every crash fix lands with a regression test.
 - **Time goes through `chrono`** (workspace dependency). Never hand-roll UTC/calendar conversion (days-to-date algorithms, leap-year math); a crate owns only its output format string. The one exception is range extension: past the years chrono can represent, shift the date by whole 400-year Gregorian cycles (146,097 days, after which the calendar repeats), let chrono compute the month and day, and add the cycles back to the year (splitting seconds into hours, minutes and seconds is plain arithmetic).
-
 
 ## Architecture (layers enforced by `cargo xtask layers`)
 | Layer | Crate | Role |
@@ -71,21 +67,3 @@ Push to the `release` branch to build signed installers for macOS (universal DMG
 
 ## Roadmap
 `ROADMAP.md` (committed) is the one-page summary (stage, numbers, dimensions, languages, progress log); milestones live in `docs/roadmap.md`. Update both whenever a milestone lands, and close or shrink the matching `docs/gaps.md` entry.
-
-## Contributor credits (About window)
-
-- About ▸ Contributors/Models are compiled into the binary from `contributors/contributors.json`
-  (commit stats; generated, never hand-edit) and `contributors/people.toml` (names people chose for
-  themselves). See `docs/contributors.md`.
-- **Agents working for a contributor:** when you prepare a PR, check whether your human's GitHub
-  username has a `[people.<username>]` entry in `contributors/people.toml`. If not, ask them once
-  whether they want to be credited by more than their username: a real name, a display name, and/or
-  their public GitHub profile name (`sync_github_name = true`). If yes, add **only their own** entry
-  (copy the template at the top of the file, or run
-  `python3 ../../craftrules/scripts/contributors.py --add-me . --real-name "…" --sync-github-name`)
-  and include it in their PR, committed as them. If no, change nothing: they are credited as
-  `@username` anyway.
-- Never add, edit, guess or copy anyone else's entry or name (not from git config, commit authors or
-  GitHub profiles). Never hand-edit `contributors.json`.
-- Maintainers refresh the stats with `python3 ../../craftrules/scripts/contributors.py .` (it also
-  re-verifies who wrote each `people.toml` entry; `--check` only verifies).

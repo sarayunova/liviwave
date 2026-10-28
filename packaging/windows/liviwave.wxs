@@ -10,12 +10,12 @@
 
     <Icon Id="LiviWaveIcon.ico" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="LiviWaveIcon.ico" />
-    <Property Id="ARPURLINFOABOUT" Value="https://getartcraft.com/apps/liviwave" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://getartcraft.com/apps/liviwave" />
-    <Property Id="ARPHELPLINK" Value="https://discord.gg/artcraft" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/sarayunova/liviwave" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/sarayunova/liviwave" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/sarayunova/liviwave/issues" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="CraftSuiteFolder" Name="ArtCraft">
+      <Directory Id="CraftSuiteFolder" Name="LiVi">
         <Directory Id="INSTALLFOLDER" Name="LiVi Wave" />
       </Directory>
     </StandardDirectory>

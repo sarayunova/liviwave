@@ -24,10 +24,8 @@ pub(super) fn about(app: &mut SoundApp, ctx: &egui::Context) {
             _ => {
                 ui.label(egui::RichText::new("LiVi Wave").font(bold(22.0)));
                 ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
-                ui.label("An open-source digital audio workstation from the ArtCraft team.");
+                ui.label("An open-source digital audio workstation, based on SoundCraft by the ArtCraft team.");
                 ui.label("Dual-licensed MIT OR Apache-2.0. Made with Rust and egui.");
-                ui.hyperlink_to("getartcraft.com/apps/liviwave", "https://getartcraft.com/apps/liviwave");
-                ui.hyperlink_to("Join us on Discord", "https://discord.gg/artcraft");
             }
         }
     });
