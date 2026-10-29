@@ -132,6 +132,11 @@ impl SourceAudio {
         self.stream.as_ref().map_or(0, |(s, _)| s.misses())
     }
 
+    /// The WAV file a streamed source plays from.
+    pub fn stream_path(&self) -> Option<&std::path::Path> {
+        self.stream.as_ref().map(|(_, p)| p.as_path())
+    }
+
     /// All the audio in memory: `buffer` itself, or for a streamed source the file decoded whole.
     pub fn whole(&self) -> Result<std::borrow::Cow<'_, AudioBuffer>, String> {
         let Some((_, path)) = &self.stream else { return Ok(std::borrow::Cow::Borrowed(&self.buffer)) };

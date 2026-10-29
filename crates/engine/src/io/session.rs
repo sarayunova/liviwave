@@ -189,6 +189,8 @@ mod save_tests {
         let copy = dir.join("T/T.scraft").to_string_lossy().into_owned();
         save_session(&mut big, &copy).unwrap();
         assert_eq!(reopen(&copy).session().pool.get(id(&big)).unwrap().buffer.channels[0][0], 0.5);
+        let copied = std::fs::read_dir(dir.join("T/Audio Files")).unwrap().count();
+        assert_eq!(copied, 1, "the streamed file is copied once");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

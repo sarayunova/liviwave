@@ -541,9 +541,15 @@ fn write_session(session: &Session, path: &str, overwrite: bool) -> Result<(Sess
                 continue;
             }
         }
-        let opts = EncodeOptions { format: FileFormat::Wav, bit_depth: liviwave_audio_io::BitDepth::Float32, dither: false, bwf: None };
-        let bytes = liviwave_audio_io::encode(&*audio.whole().map_err(EngineError::Io)?, &opts).map_err(|err| EngineError::Io(err.to_string()))?;
-        let (name, new) = store_wav(&audio_dir, &stem, &bytes)?;
+        let (name, new) = if let Some(from) = audio.stream_path() {
+            // A streamed file is copied as it is, not decoded into memory and encoded again.
+            copy_wav(&audio_dir, &stem, from)?
+        } else {
+            let opts = EncodeOptions { format: FileFormat::Wav, bit_depth: liviwave_audio_io::BitDepth::Float32, dither: false, bwf: None };
+            let bytes =
+                liviwave_audio_io::encode(&*audio.whole().map_err(EngineError::Io)?, &opts).map_err(|err| EngineError::Io(err.to_string()))?;
+            store_wav(&audio_dir, &stem, &bytes)?
+        };
         src.path = format!("Audio Files/{name}");
         src.unsaved = false;
         src.format = FileFormat::Wav;
@@ -693,6 +699,44 @@ fn store_wav(dir: &Path, stem: &str, bytes: &[u8]) -> Result<(String, bool)> {
             }
             Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
                 if std::fs::metadata(&path).is_ok_and(|m| m.len() == bytes.len() as u64) && std::fs::read(&path).is_ok_and(|b| b == bytes) {
+                    return Ok((name, false));
+                }
+            }
+            Err(err) => return Err(EngineError::Io(format!("{}: {err}", path.display()))),
+        }
+    }
+    Err(EngineError::Io(format!("{}: no free file name for {stem}", dir.display())))
+}
+
+/// Copy the WAV `from` into `dir` as `<stem>.wav` (or the next free `<stem>_NN.wav`). A file already
+/// there with the same content is reused: the flag is false then.
+fn copy_wav(dir: &Path, stem: &str, from: &Path) -> Result<(String, bool)> {
+    crate::file_access::check_read(from).map_err(EngineError::Io)?;
+    let same = |a: &Path, b: &Path| -> std::io::Result<bool> {
+        use std::io::Read;
+        let (mut x, mut y) = (std::fs::File::open(a)?, std::fs::File::open(b)?);
+        if x.metadata()?.len() != y.metadata()?.len() {
+            return Ok(false);
+        }
+        let (mut p, mut q) = (vec![0u8; 1 << 16], vec![0u8; 1 << 16]);
+        loop {
+            let n = x.read(&mut p)?;
+            if n == 0 {
+                return Ok(true);
+            }
+            y.read_exact(q.get_mut(..n).unwrap_or_default())?;
+            if p.get(..n) != q.get(..n) {
+                return Ok(false);
+            }
+        }
+    };
+    for k in 0..10_000u32 {
+        let name = if k == 0 { format!("{stem}.wav") } else { format!("{stem}_{k:02}.wav") };
+        let path = dir.join(&name);
+        match copy_new(from, &path) {
+            Ok(()) => return Ok((name, true)),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                if same(from, &path).unwrap_or(false) {
                     return Ok((name, false));
                 }
             }
