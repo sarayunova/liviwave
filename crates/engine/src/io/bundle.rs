@@ -59,7 +59,8 @@ fn session_bundle_within(session: &Session, limits: BundleLimits) -> Result<(Vec
             k += 1;
         }
         let opts_wav = EncodeOptions { format: FileFormat::Wav, bit_depth: liviwave_audio_io::BitDepth::Float32, dither: false, bwf: None };
-        let bytes = liviwave_audio_io::encode(&audio.buffer, &opts_wav).map_err(|err| EngineError::Io(err.to_string()))?;
+        let bytes =
+            liviwave_audio_io::encode(&*audio.whole().map_err(EngineError::Io)?, &opts_wav).map_err(|err| EngineError::Io(err.to_string()))?;
         fits(bytes.len())?;
         w.start_file(target.as_str(), opts).map_err(zerr)?;
         w.write_all(&bytes).map_err(ioerr)?;

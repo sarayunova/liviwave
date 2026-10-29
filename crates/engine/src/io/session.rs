@@ -44,14 +44,53 @@ pub fn open_session(e: &mut Engine, path: impl AsRef<Path>) -> Result<Vec<String
 /// [`open_session`], following the media paths in it as if they were stored in the session file
 /// `links` (crash recovery: the session written beside the autosave, its paths from the original).
 pub(crate) fn open_session_linked(e: &mut Engine, path: &Path, links: &Path) -> Result<Vec<String>> {
+    open_session_streaming(e, path, links, STREAM_MIN_BYTES)
+}
+
+/// WAV files at least this big are played from disk, not decoded into memory, when a session opens.
+const STREAM_MIN_BYTES: u64 = 128 << 20;
+
+/// The sources that sample-playing instruments hold: they are read whole, so they stay in memory.
+fn sampler_sources(s: &Session) -> std::collections::HashSet<liviwave_model::SourceId> {
+    let inserts = s.tracks.iter().flat_map(|t| t.mixer.inserts.iter().flatten().chain(t.instrument.as_ref()));
+    inserts.filter_map(|i| i.sample).collect()
+}
+
+/// The WAV at `p` as a source streamed from disk, when it is big enough, already at `rate`, and not
+/// decoded yet. `None` leaves it to [`decode_file`].
+fn stream_file(files: &mut DecodedFiles, p: &Path, rate: u32, min_bytes: u64) -> Option<Arc<SourceAudio>> {
+    let is_wav = p.extension().and_then(OsStr::to_str).is_some_and(|x| x.eq_ignore_ascii_case("wav"));
+    if !is_wav || files.contains_key(&file_key(p)) || crate::file_access::check_read(p).is_err() {
+        return None;
+    }
+    if super::file_size(p)? < min_bytes || liviwave_audio_io::WavReader::open(p).ok()??.info().sample_rate != rate {
+        return None;
+    }
+    let audio = match SourceAudio::streamed(p) {
+        Ok(a) => Arc::new(a?),
+        Err(why) => {
+            log::warn!("{}: not streamed: {why}", p.display());
+            return None;
+        }
+    };
+    files.insert(file_key(p), Ok(Arc::clone(&audio)));
+    Some(audio)
+}
+
+/// [`open_session_linked`], streaming the WAV files of at least `stream_min` bytes.
+fn open_session_streaming(e: &mut Engine, path: &Path, links: &Path, stream_min: u64) -> Result<Vec<String>> {
     let text = read_text(path)?;
     let mut s = Session::from_json(&text).map_err(|err| EngineError::Io(err.to_string()))?;
     let dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
     let mut missing = Vec::new();
     let mut files = DecodedFiles::new();
+    let in_memory = sampler_sources(&s);
     for src in &s.sources {
-        let decoded =
-            stored_path(&src.path, links).map_err(|why| format!("{}: {why}", src.path)).and_then(|p| decode_file(&mut files, &p, s.sample_rate.hz()));
+        let rate = s.sample_rate.hz();
+        let decoded = stored_path(&src.path, links).map_err(|why| format!("{}: {why}", src.path)).and_then(|p| {
+            let streamed = if in_memory.contains(&src.id) { None } else { stream_file(&mut files, &p, rate, stream_min) };
+            streamed.map_or_else(|| decode_file(&mut files, &p, rate), Ok)
+        });
         match decoded {
             Ok(audio) => s.pool.insert(src.id, audio),
             Err(err) => missing.push(err),
@@ -130,6 +169,27 @@ mod save_tests {
         let mut r = Engine::default();
         assert_eq!(open_session(&mut r, path).unwrap(), Vec::<String>::new());
         r
+    }
+
+    #[test]
+    fn a_big_wav_at_the_session_rate_opens_streamed_and_still_saves() {
+        let dir = std::env::temp_dir().join(format!("liviwave-streamed-open-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("S/S.scraft").to_string_lossy().into_owned();
+        save_session(&mut with_take(0.5), &path).unwrap();
+        let (mut small, mut big) = (Engine::default(), Engine::default());
+        open_session_streaming(&mut small, Path::new(&path), Path::new(&path), u64::MAX).unwrap();
+        open_session_streaming(&mut big, Path::new(&path), Path::new(&path), 0).unwrap();
+        let id = |e: &Engine| e.session().sources[0].id;
+        assert!(!small.session().pool.get(id(&small)).unwrap().is_streamed());
+        let audio = big.session().pool.get(id(&big)).unwrap();
+        assert!(audio.is_streamed());
+        assert_eq!((audio.frames(), audio.channel_count()), (4_800, 1));
+        // Saving it elsewhere decodes the file again.
+        let copy = dir.join("T/T.scraft").to_string_lossy().into_owned();
+        save_session(&mut big, &copy).unwrap();
+        assert_eq!(reopen(&copy).session().pool.get(id(&big)).unwrap().buffer.channels[0][0], 0.5);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -446,7 +446,7 @@ fn import_session_data(e: &mut Engine, p: &Value) -> Result<Value> {
                 ns.path = abs.to_string_lossy().into_owned();
                 match crate::io::decode_file(&mut files, &abs, sr) {
                     Ok(audio) => {
-                        ns.frames = audio.buffer.frames() as u64;
+                        ns.frames = audio.frames() as u64;
                         ns.sample_rate = sr;
                         ns.unsaved = true;
                         s.pool.insert(ns.id, audio);

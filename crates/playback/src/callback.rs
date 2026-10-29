@@ -400,6 +400,8 @@ pub(crate) struct Side {
     old_sessions: Option<Receiver<Arc<Session>>>,
     /// The tracks of the session last sent, to tell the audio thread which ones went.
     tracks: HashSet<TrackId>,
+    /// The session last sent: where playback starts, streamed sources are loaded first.
+    session: Option<Arc<Session>>,
 }
 
 impl Side {
@@ -413,6 +415,35 @@ impl Side {
             garbage,
             old_sessions: None,
             tracks: HashSet::new(),
+            session: None,
+        }
+    }
+
+    /// Remember `s`, the session playing now, for [`Side::prime`].
+    pub(crate) fn note_session(&mut self, s: &Arc<Session>) {
+        self.session = Some(Arc::clone(s));
+    }
+
+    /// Load the audio of streamed sources that play from `at` on, so playback does not start on
+    /// silence. Waits a moment for it; call on the UI thread.
+    pub(crate) fn prime(&self, at: Samples) {
+        /// How far ahead of `at` a clip's start counts as playing straight away, in seconds.
+        const LOOK_AHEAD: f64 = 0.5;
+        let Some(s) = &self.session else { return };
+        if !s.pool.ids().any(|id| s.pool.get(id).is_some_and(|a| a.is_streamed())) {
+            return;
+        }
+        let until = at.saturating_add(s.sample_rate.samples(LOOK_AHEAD));
+        for clip in s.tracks.iter().flat_map(|t| t.clips()) {
+            let liviwave_model::ClipContent::Audio { source, offset } = clip.content else { continue };
+            if clip.end() <= at || clip.start >= until {
+                continue;
+            }
+            let stretch = if clip.stretch.is_finite() && clip.stretch > 0.0 { clip.stretch } else { 1.0 };
+            let frame = offset as f64 + (at - clip.start).max(0) as f64 / stretch;
+            if let Some(a) = s.pool.get(source) {
+                a.prime(frame.max(0.0) as u64);
+            }
         }
     }
 

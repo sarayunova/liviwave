@@ -434,7 +434,7 @@ fn split_mono(e: &mut Engine, p: &Value) -> Result<Value> {
                 if let ClipContent::Audio { source, .. } = &mut c.content {
                     let audio =
                         s.pool.get(*source).ok_or_else(|| bad("track.split_into_mono", format!("audio unavailable for clip `{}`", c.name)))?;
-                    let channels = audio.buffer.channels.len();
+                    let channels = audio.channel_count();
                     if channels == 0 {
                         return Err(bad("track.split_into_mono", format!("audio has no channels for clip `{}`", c.name)));
                     }
@@ -445,14 +445,14 @@ fn split_mono(e: &mut Engine, p: &Value) -> Result<Value> {
                         let mono = if let Some(&id) = mono_sources.get(&key) {
                             id
                         } else {
-                            let samples =
-                                audio.buffer.channels.get(key.1).ok_or_else(|| bad("track.split_into_mono", "source channel unavailable"))?;
                             copied_samples = copied_samples
-                                .checked_add(samples.len())
+                                .checked_add(audio.frames())
                                 .filter(|&n| n <= crate::io::MAX_IMPORT_SAMPLES)
                                 .ok_or_else(|| bad("track.split_into_mono", "split would copy too much audio"))?;
                             // Keep the full channel: the cloned clips retain their offsets, stretch,
                             // gain and fades, and every reader sees genuine mono media (including saves).
+                            let whole = audio.whole().map_err(|why| bad("track.split_into_mono", why))?;
+                            let samples = whole.channels.get(key.1).ok_or_else(|| bad("track.split_into_mono", "source channel unavailable"))?;
                             let buf = liviwave_audio_io::AudioBuffer { sample_rate: s.sample_rate.hz(), channels: vec![samples.clone()] };
                             let original = s.source(*source);
                             let name = format!("{}.{suffix}.wav", original.map_or(c.name.as_str(), |source| source.name.as_str()));

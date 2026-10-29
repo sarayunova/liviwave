@@ -157,8 +157,8 @@ pub fn render_stretched(s: &mut Session, cmd: &str, c: &Clip, out_len: Samples) 
     }
     let a = usize::try_from(offset.max(0)).unwrap_or(0);
     let n = src_len as usize;
-    let ch: Vec<Vec<f32>> = audio
-        .buffer
+    let whole = audio.whole().map_err(|why| bad(cmd, why))?;
+    let ch: Vec<Vec<f32>> = whole
         .channels
         .iter()
         .map(|x| {

@@ -26,12 +26,14 @@ fn bands(body: Rect, n: usize) -> impl Iterator<Item = Rect> {
 
 fn channel(canvas: Canvas<'_>, clip: &Clip, audio: &SourceAudio, ch: usize, band: Rect, wave: Color32) {
     let Canvas { painter, s, tl } = canvas;
-    let (Some(samples), Some(peaks)) = (audio.channel(ch), audio.peaks.get(ch)) else { return };
+    // A streamed source has no samples in memory: it is drawn from the overview alone.
+    let Some(peaks) = audio.peaks.get(ch) else { return };
+    let Some(samples) = audio.channel(ch).or_else(|| audio.is_streamed().then_some(&[][..])) else { return };
     let Some(g) = Grid::new(painter, s, tl, band) else { return };
     let (rectified, power, outlines) = (s.edit.flag("waveform.rectified"), s.edit.flag("waveform.power"), s.edit.flag("waveform.outlines"));
     let origin = clip.start.saturating_sub(clip.source_offset()) as f64;
     let gain = |pos: f64| clip.gain_at((pos as Samples).saturating_sub(clip.start).min(clip.length).max(0)) * s.edit.zoom.waveform_zoom;
-    if g.step <= 1.0 {
+    if g.step <= 1.0 && !audio.is_streamed() {
         let first = (g.pos_at(g.vis.min.x) - origin).floor().max(0.0) as usize;
         let last = (g.pos_at(g.vis.max.x) - origin).ceil() as usize;
         let from = first.saturating_sub(1);

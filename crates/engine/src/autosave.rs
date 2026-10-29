@@ -228,7 +228,8 @@ impl Autosave {
                     let name = format!("{} {}.wav", sanitize_name(&src.name), self.next);
                     self.next += 1;
                     let opts = EncodeOptions { format: FileFormat::Wav, bit_depth: BitDepth::Float32, dither: false, bwf: None };
-                    let bytes = liviwave_audio_io::encode(&audio.buffer, &opts).map_err(|err| EngineError::Io(err.to_string()))?;
+                    let bytes = liviwave_audio_io::encode(&*audio.whole().map_err(EngineError::Io)?, &opts)
+                        .map_err(|err| EngineError::Io(err.to_string()))?;
                     create_folder(&audio_dir).and_then(|()| write_synced(&audio_dir.join(&name), &bytes)).map_err(|err| io_error(&audio_dir, err))?;
                     name
                 }

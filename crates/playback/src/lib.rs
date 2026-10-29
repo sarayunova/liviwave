@@ -231,6 +231,7 @@ impl Player {
         let new_side = |garbage: Receiver<Vec<Box<dyn Plugin>>>| {
             let mut side = Side::new(side_rate, garbage);
             side.gone_tracks(&session);
+            side.note_session(&session);
             Mutex::new(side)
         };
         match open_device(want, want_ch, cfg) {
@@ -391,6 +392,7 @@ impl Player {
     pub fn update_session(&self, s: Arc<Session>) {
         let (instances, gone) = {
             let mut side = self.side();
+            side.note_session(&s);
             (side.prepare(&s), side.gone_tracks(&s))
         };
         let _ = self.tx.send(Cmd::Session(s, instances));
@@ -476,6 +478,7 @@ impl Player {
 
     /// Start playback at `from`, stopping at `end`, or looping `looped`.
     pub fn play(&self, from: Samples, end: Option<Samples>, looped: Option<Range>) {
+        self.side().prime(from);
         self.shared.position.store(from, Ordering::Relaxed);
         self.shared.playing.store(true, Ordering::Relaxed);
         let _ = self.tx.send(Cmd::Play { from, end, looped });
@@ -496,6 +499,7 @@ impl Player {
     }
 
     pub fn locate(&self, at: Samples) {
+        self.side().prime(at);
         self.shared.position.store(at, Ordering::Relaxed);
         let _ = self.tx.send(Cmd::Locate(at));
     }

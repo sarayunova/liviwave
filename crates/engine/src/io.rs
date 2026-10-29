@@ -51,6 +51,12 @@ pub fn read_file(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     std::fs::read(path).map_err(err)
 }
 
+/// The size of the regular file at `path`, if it may be read and is one.
+pub(crate) fn file_size(path: &Path) -> Option<u64> {
+    crate::file_access::check_read(path).ok()?;
+    std::fs::metadata(path).ok().filter(std::fs::Metadata::is_file).map(|m| m.len())
+}
+
 /// [`read_file`] as UTF-8 text.
 pub fn read_text(path: impl AsRef<Path>) -> Result<String> {
     let path = path.as_ref();
@@ -536,7 +542,7 @@ fn write_session(session: &Session, path: &str, overwrite: bool) -> Result<(Sess
             }
         }
         let opts = EncodeOptions { format: FileFormat::Wav, bit_depth: liviwave_audio_io::BitDepth::Float32, dither: false, bwf: None };
-        let bytes = liviwave_audio_io::encode(&audio.buffer, &opts).map_err(|err| EngineError::Io(err.to_string()))?;
+        let bytes = liviwave_audio_io::encode(&*audio.whole().map_err(EngineError::Io)?, &opts).map_err(|err| EngineError::Io(err.to_string()))?;
         let (name, new) = store_wav(&audio_dir, &stem, &bytes)?;
         src.path = format!("Audio Files/{name}");
         src.unsaved = false;

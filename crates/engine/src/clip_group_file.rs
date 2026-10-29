@@ -66,7 +66,8 @@ pub fn export(e: &Engine, ids: &[ClipId], path: &str) -> Result<usize> {
                 let rel = format!("{audio_dir_name}/{}_{}.wav", crate::io::sanitize_name(&src.name), source.0);
                 crate::io::make_dir(dir.join(&audio_dir_name))?;
                 let opts = EncodeOptions { format: FileFormat::Wav, bit_depth: liviwave_audio_io::BitDepth::Float32, dither: false, bwf: None };
-                let bytes = liviwave_audio_io::encode(&buf.buffer, &opts).map_err(|err| EngineError::Io(err.to_string()))?;
+                let bytes =
+                    liviwave_audio_io::encode(&*buf.whole().map_err(EngineError::Io)?, &opts).map_err(|err| EngineError::Io(err.to_string()))?;
                 crate::io::write_path(dir.join(&rel), bytes)?;
                 slot.insert(rel);
             }
@@ -150,7 +151,7 @@ pub fn import(e: &mut Engine, path: &str, first: Option<TrackId>, at: Samples) -
                 let channels = lane
                     .iter()
                     .find_map(|c| match c.content {
-                        ClipContent::Audio { source, .. } => map.get(&source.0).and_then(|n| s.pool.get(*n)).map(|a| a.buffer.num_channels()),
+                        ClipContent::Audio { source, .. } => map.get(&source.0).and_then(|n| s.pool.get(*n)).map(|a| a.channel_count()),
                         _ => None,
                     })
                     .unwrap_or(2);

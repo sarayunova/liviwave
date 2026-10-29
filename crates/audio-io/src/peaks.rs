@@ -114,7 +114,16 @@ impl Peaks {
         self.sum(samples, start, end).range()
     }
 
+    /// Whether the samples the overview was built from are not at hand (a streamed source passes
+    /// none): queries then answer from whole blocks, rounded outwards.
+    fn blocks_only(&self, samples: &[f32]) -> bool {
+        samples.is_empty() && self.len > 0
+    }
+
     fn sum(&self, samples: &[f32], start: usize, end: usize) -> Block {
+        if self.blocks_only(samples) {
+            return self.blocks(start / BLOCK, end.min(self.len).div_ceil(BLOCK));
+        }
         let end = end.min(self.len).min(samples.len());
         let (first, last) = (start.div_ceil(BLOCK), end / BLOCK);
         let raw = |a: usize, b: usize| Block::of(samples.get(a..b).unwrap_or_default());
@@ -150,7 +159,7 @@ impl Peaks {
     /// The spans of sample positions `[start + c * step, start + (c + 1) * step + overlap]` that
     /// reach the data, clamped to it.
     fn windows(&self, samples: &[f32], start: f64, step: f64, overlap: f64, cols: usize) -> impl Iterator<Item = Option<(f64, f64)>> {
-        let n = self.len.min(samples.len());
+        let n = if self.blocks_only(samples) { self.len } else { self.len.min(samples.len()) };
         let valid = n > 0 && start.is_finite() && step.is_finite() && step > 0.0 && overlap.is_finite() && overlap >= 0.0;
         let last = n.saturating_sub(1) as f64;
         (0..cols.min(MAX_COLUMNS)).map(move |c| {
@@ -170,8 +179,14 @@ impl Peaks {
             let b = samples.get(i as usize + 1).copied().unwrap_or(a);
             Block::point(a + (b - a) * (t - i) as f32)
         };
+        let blocks_only = self.blocks_only(samples);
         self.windows(samples, start, step, overlap, cols)
-            .map(|w| w.map(|(a, b)| self.sum(samples, a.ceil() as usize, b.floor() as usize + 1).merge(at(a)).merge(at(b)).range()))
+            .map(|w| {
+                w.map(|(a, b)| {
+                    let sum = self.sum(samples, a.ceil() as usize, b.floor() as usize + 1);
+                    if blocks_only { sum } else { sum.merge(at(a)).merge(at(b)) }.range()
+                })
+            })
             .collect()
     }
 
@@ -181,8 +196,11 @@ impl Peaks {
         self.windows(samples, start, step, overlap, cols)
             .map(|w| {
                 w.map(|(a, b)| {
-                    let (s, e) = (a.floor() as usize, (b.ceil() as usize).saturating_add(1).min(self.len).min(samples.len()));
-                    (self.sum(samples, s, e).squares / e.saturating_sub(s).max(1) as f32).sqrt()
+                    let have = if self.blocks_only(samples) { self.len } else { self.len.min(samples.len()) };
+                    let (s, e) = (a.floor() as usize, (b.ceil() as usize).saturating_add(1).min(have));
+                    // From whole blocks, the samples counted are the ones of the blocks used.
+                    let (from, to) = if self.blocks_only(samples) { (s / BLOCK * BLOCK, (e.div_ceil(BLOCK) * BLOCK).min(have)) } else { (s, e) };
+                    (self.sum(samples, s, e).squares / to.saturating_sub(from).max(1) as f32).sqrt()
                 })
             })
             .collect()
@@ -227,6 +245,29 @@ mod tests {
             seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
             let b = a + 1 + (seed >> 33) as usize % (100_003 - a);
             assert_eq!(p.minmax(&x, a, b), brute(&x, a, b), "range {a}..{b}");
+        }
+    }
+
+    #[test]
+    fn without_samples_a_query_answers_from_whole_blocks() {
+        let x = signal(100_003);
+        let p = Peaks::build(&x);
+        // A range that is not block aligned reaches out to the blocks it touches.
+        let (a, b) = (1000, 2000);
+        let (lo, hi) = p.minmax(&[], a, b);
+        let (blo, bhi) = brute(&x, a / BLOCK * BLOCK, b.div_ceil(BLOCK) * BLOCK);
+        assert_eq!((lo, hi), (blo, bhi));
+        // Whole-file spans cover what the samples give, a little wider at most.
+        let exact = p.spans(&x, 0.0, 25_000.0, 0.0, 4);
+        let coarse = p.spans(&[], 0.0, 25_000.0, 0.0, 4);
+        for (e, c) in exact.iter().zip(&coarse) {
+            let (e, c) = (e.unwrap(), c.unwrap());
+            assert!(c.0 <= e.0 + 1e-6 && c.1 >= e.1 - 1e-6, "{e:?} vs {c:?}");
+        }
+        let rms = p.rms_spans(&[], 0.0, 25_000.0, 0.0, 4);
+        let want = p.rms_spans(&x, 0.0, 25_000.0, 0.0, 4);
+        for (r, w) in rms.iter().zip(&want) {
+            assert!((r.unwrap() - w.unwrap()).abs() < 0.01);
         }
     }
 
