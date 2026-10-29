@@ -64,7 +64,7 @@ fn add_source_audio(s: &mut Session, name: &str, audio: Arc<SourceAudio>, path: 
         id,
         name: stem.clone(),
         path: stored,
-        channels: u16::try_from(audio.buffer.num_channels()).unwrap_or(u16::MAX),
+        channels: u16::try_from(audio.channel_count()).unwrap_or(u16::MAX),
         frames: audio.frames() as u64,
         sample_rate: s.sample_rate.hz(),
         format,
@@ -106,6 +106,14 @@ impl DecodedImport {
 /// Reads and decodes the audio file at `path` for a session at `rate`. Thread-safe and slow (the
 /// whole file is read, decoded, resampled and given peaks): run it off the UI thread.
 pub fn decode_import(path: &str, rate: u32) -> Result<DecodedImport> {
+    decode_import_streaming(path, rate, super::session::STREAM_MIN_BYTES)
+}
+
+/// [`decode_import`], streaming a WAV file of at least `stream_min` bytes from disk.
+fn decode_import_streaming(path: &str, rate: u32, stream_min: u64) -> Result<DecodedImport> {
+    if let Some((info, audio)) = super::session::open_streamed(Path::new(path), rate, stream_min) {
+        return Ok(DecodedImport { key: file_key(Path::new(path)), rate, info, audio });
+    }
     let bytes = read_file(path)?;
     let name = Path::new(path).file_name().and_then(OsStr::to_str).unwrap_or("Audio");
     let (info, audio) = decode_import_bytes(name, &bytes, rate)?;
@@ -142,7 +150,7 @@ fn place_import(
     target: Option<TrackId>,
     at: Samples,
 ) -> Result<Value> {
-    let channels = audio.buffer.num_channels();
+    let channels = audio.channel_count();
     let file_rate = info.sample_rate;
     let s = e.session_mut();
     let session_rate = s.sample_rate.hz();
@@ -218,5 +226,29 @@ mod rate_tests {
         assert!(at_rate(buf(1), 48_000, 1_000_000).is_none());
         let ok = at_rate(buf(8_000), 48_000, 1_000_000).unwrap();
         assert_eq!((ok.sample_rate, ok.frames()), (48_000, 600));
+    }
+
+    #[test]
+    fn a_big_wav_is_imported_streamed_with_its_channels() {
+        let mut b = AudioBuffer::new(48_000, 2, 6_000);
+        b.channels[1].fill(0.25);
+        let opts =
+            liviwave_audio_io::EncodeOptions { format: FileFormat::Wav, bit_depth: liviwave_audio_io::BitDepth::Int16, dither: false, bwf: None };
+        let dir = std::env::temp_dir().join(format!("liviwave-import-stream-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("long.wav").to_string_lossy().into_owned();
+        std::fs::write(&path, liviwave_audio_io::encode(&b, &opts).unwrap()).unwrap();
+        let mut e = Engine::default();
+        let rate = e.session().sample_rate.hz();
+        // At the session rate and big enough: streamed. Another rate or too small: decoded.
+        let streamed = decode_import_streaming(&path, rate, 0).unwrap();
+        assert!(streamed.audio.is_streamed());
+        assert!(!decode_import_streaming(&path, rate, u64::MAX).unwrap().audio.is_streamed());
+        assert!(!decode_import_streaming(&path, 44_100, 0).unwrap().audio.is_streamed());
+        place_decoded(&mut e, "long.wav", streamed, Some(&path), None, 0).unwrap();
+        let src = e.session().sources.last().unwrap();
+        assert_eq!((src.channels, src.frames), (2, 6_000));
+        assert_eq!(e.session().tracks.last().unwrap().channels(), 2, "a stereo track for a stereo file");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

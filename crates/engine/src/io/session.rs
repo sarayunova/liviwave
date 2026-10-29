@@ -48,7 +48,7 @@ pub(crate) fn open_session_linked(e: &mut Engine, path: &Path, links: &Path) -> 
 }
 
 /// WAV files at least this big are played from disk, not decoded into memory, when a session opens.
-const STREAM_MIN_BYTES: u64 = 128 << 20;
+pub(super) const STREAM_MIN_BYTES: u64 = 128 << 20;
 
 /// The sources that sample-playing instruments hold: they are read whole, so they stay in memory.
 fn sampler_sources(s: &Session) -> std::collections::HashSet<liviwave_model::SourceId> {
@@ -59,22 +59,32 @@ fn sampler_sources(s: &Session) -> std::collections::HashSet<liviwave_model::Sou
 /// The WAV at `p` as a source streamed from disk, when it is big enough, already at `rate`, and not
 /// decoded yet. `None` leaves it to [`decode_file`].
 fn stream_file(files: &mut DecodedFiles, p: &Path, rate: u32, min_bytes: u64) -> Option<Arc<SourceAudio>> {
-    let is_wav = p.extension().and_then(OsStr::to_str).is_some_and(|x| x.eq_ignore_ascii_case("wav"));
-    if !is_wav || files.contains_key(&file_key(p)) || crate::file_access::check_read(p).is_err() {
+    if files.contains_key(&file_key(p)) {
         return None;
     }
-    if super::file_size(p)? < min_bytes || liviwave_audio_io::WavReader::open(p).ok()??.info().sample_rate != rate {
-        return None;
-    }
-    let audio = match SourceAudio::streamed(p) {
-        Ok(a) => Arc::new(a?),
-        Err(why) => {
-            log::warn!("{}: not streamed: {why}", p.display());
-            return None;
-        }
-    };
+    let (_, audio) = open_streamed(p, rate, min_bytes)?;
     files.insert(file_key(p), Ok(Arc::clone(&audio)));
     Some(audio)
+}
+
+/// The WAV at `p` and its file info as a streamed source: `None` unless it is a WAV that may be
+/// read, at least `min_bytes` big, with sample rate `rate`.
+pub(super) fn open_streamed(p: &Path, rate: u32, min_bytes: u64) -> Option<(liviwave_audio_io::AudioInfo, Arc<SourceAudio>)> {
+    let is_wav = p.extension().and_then(OsStr::to_str).is_some_and(|x| x.eq_ignore_ascii_case("wav"));
+    if !is_wav || crate::file_access::check_read(p).is_err() || super::file_size(p)? < min_bytes {
+        return None;
+    }
+    let info = liviwave_audio_io::WavReader::open(p).ok()??.info().clone();
+    if info.sample_rate != rate || info.frames == 0 {
+        return None;
+    }
+    match SourceAudio::streamed(p) {
+        Ok(a) => Some((info, Arc::new(a?))),
+        Err(why) => {
+            log::warn!("{}: not streamed: {why}", p.display());
+            None
+        }
+    }
 }
 
 /// [`open_session_linked`], streaming the WAV files of at least `stream_min` bytes.
