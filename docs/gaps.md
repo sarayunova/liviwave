@@ -124,10 +124,11 @@ launch #142; Linux #45, #107.
 
 ### G-06. Memory-bound media
 
-- **Missing:** streaming sources from disk; recording to disk. Every source is decoded whole into
-  the `SourcePool`; takes accumulate in RAM until stop (PR #84 open).
-- **Impact:** hour-long multitrack sessions and long takes exhaust memory; a crash during a long
-  take loses it.
+- **Done:** recording streams to one WAV file per take while it records (header rewritten every
+  second), and crash recovery places the takes of a recording that never finished.
+- **Missing:** streaming sources from disk. Every source, a finished take included, is decoded
+  whole into the `SourcePool`. Recovered takes are placed without the record offset.
+- **Impact:** hour-long multitrack sessions exhaust memory.
 - **Estimate:** ≈ 15–25 h.
 
 ### G-07. Fidelity harness against Pro Tools
