@@ -76,6 +76,22 @@ impl SourceAudio {
     pub fn channel(&self, ch: usize) -> Option<&[f32]> {
         self.buffer.channels.get(ch).map(Vec::as_slice)
     }
+
+    /// Fill `out` with channel `ch` from frame `start` on; frames outside the audio read as
+    /// silence. The one way the mix reads sources, so how they are stored can change behind it.
+    pub fn read(&self, ch: usize, start: i64, out: &mut [f32]) {
+        out.fill(0.0);
+        let Some(src) = self.channel(ch) else { return };
+        let from = start.max(0);
+        let Ok(from_us) = usize::try_from(from) else { return };
+        let skip = usize::try_from(from.saturating_sub(start)).unwrap_or(usize::MAX);
+        let Some(dst) = out.get_mut(skip..) else { return };
+        let Some(have) = src.get(from_us..) else { return };
+        let n = dst.len().min(have.len());
+        if let (Some(d), Some(h)) = (dst.get_mut(..n), have.get(..n)) {
+            d.copy_from_slice(h);
+        }
+    }
 }
 
 /// Shared decoded audio, keyed by source id.
@@ -111,5 +127,41 @@ impl SourcePool {
 impl PartialEq for SourcePool {
     fn eq(&self, other: &Self) -> bool {
         self.map.len() == other.map.len() && self.map.iter().zip(other.map.iter()).all(|((a, x), (b, y))| a == b && Arc::ptr_eq(x, y))
+    }
+}
+
+#[cfg(test)]
+mod read_tests {
+    use super::*;
+
+    fn ramp() -> SourceAudio {
+        let mut b = AudioBuffer::new(48_000, 2, 6);
+        for (i, x) in b.channels[0].iter_mut().enumerate() {
+            *x = i as f32 + 1.0;
+        }
+        SourceAudio::new(b)
+    }
+
+    #[test]
+    fn read_copies_the_frames_asked_for() {
+        let mut out = [9.0; 3];
+        ramp().read(0, 2, &mut out);
+        assert_eq!(out, [3.0, 4.0, 5.0]);
+    }
+
+    #[test]
+    fn read_is_silent_before_the_start_after_the_end_and_on_a_missing_channel() {
+        let a = ramp();
+        let mut out = [9.0; 4];
+        a.read(0, -2, &mut out);
+        assert_eq!(out, [0.0, 0.0, 1.0, 2.0]);
+        a.read(0, 4, &mut out);
+        assert_eq!(out, [5.0, 6.0, 0.0, 0.0]);
+        a.read(0, i64::MAX, &mut out);
+        assert_eq!(out, [0.0; 4]);
+        a.read(0, i64::MIN, &mut out);
+        assert_eq!(out, [0.0; 4]);
+        a.read(5, 0, &mut out);
+        assert_eq!(out, [0.0; 4]);
     }
 }

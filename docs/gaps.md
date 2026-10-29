@@ -128,6 +128,11 @@ launch #142; Linux #45, #107.
   second), and crash recovery places the takes of a recording that never finished.
 - **Missing:** streaming sources from disk. Every source, a finished take included, is decoded
   whole into the `SourcePool`. Recovered takes are placed without the record offset.
+- **Streaming plan:** (1) the mix reads sources only through `SourceAudio::read` (done 2026-10-29,
+  memory-backed); (2) a disk-backed source behind it, with a block cache that a prefetch thread
+  fills ahead of the play position (the audio thread never touches the disk); (3) use it for
+  long WAV files and finished takes; other formats stay decoded. Waveform peaks, the sampler,
+  AudioSuite, bounce and autosave still need whole buffers and load them on demand.
 - **Impact:** hour-long multitrack sessions exhaust memory.
 - **Estimate:** ≈ 15–25 h.
 

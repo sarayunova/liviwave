@@ -135,11 +135,17 @@ pub(crate) fn render_clip(s: &Session, clip: &Clip, pos: Samples, frames: usize,
     let i1 = usize::try_from(isect.end - pos).unwrap_or(0).min(frames);
     // Gain is evaluated every 32 samples and interpolated (fades and envelopes stay smooth).
     const STEP: usize = 32;
+    // Source samples one step reads, kept on the stack: a step is shortened when stretching reads more.
+    const WINDOW: usize = 512;
+    let mut win = [0.0f32; WINDOW];
+    // Source frames per output frame; a step spans at most `WINDOW - 3` of them.
+    let rate = if (stretch - 1.0).abs() < 1e-9 { 1.0 } else { 1.0 / stretch };
+    let step = (((WINDOW - 3) as f64 / rate.max(1.0)) as usize).clamp(1, STEP);
     for (ch, dst) in buf.iter_mut().enumerate() {
-        let src = audio.buffer.channels.get(ch % nsrc).map(Vec::as_slice).unwrap_or(&[]);
+        let chan = ch % nsrc;
         let mut i = i0;
         while i < i1 {
-            let seg_end = (i + STEP).min(i1);
+            let seg_end = (i + step).min(i1);
             let rel0 = pos.saturating_add(i as i64).saturating_sub(clip.start);
             // The last sample of this step, not the first sample of the next one, so a breakpoint
             // on the boundary does not ramp the audio before it.
@@ -147,16 +153,23 @@ pub(crate) fn render_clip(s: &Session, clip: &Clip, pos: Samples, frames: usize,
             let g0 = clip.gain_at(rel0);
             let g1 = clip.gain_at(rel1.min(clip.length));
             let n = (seg_end - i).saturating_sub(1).max(1) as f32;
+            let plain = (stretch - 1.0).abs() < 1e-9;
+            // The source frame the window starts at, and the window itself.
+            let w0 = if plain { offset.saturating_add(rel0) } else { (offset as f64 + rel0 as f64 / stretch).floor() as i64 };
+            let span = if plain { seg_end - i } else { (((rel1 - rel0) as f64 / stretch).ceil() as usize + 3).min(WINDOW) };
+            let w = win.get_mut(..span.min(WINDOW)).unwrap_or(&mut []);
+            audio.read(chan, w0, w);
             for k in i..seg_end {
                 let rel = pos.saturating_add(k as i64).saturating_sub(clip.start);
-                let v = if (stretch - 1.0).abs() < 1e-9 {
-                    usize::try_from(offset.saturating_add(rel)).ok().and_then(|x| src.get(x)).copied().unwrap_or(0.0)
+                let v = if plain {
+                    w.get(k - i).copied().unwrap_or(0.0)
                 } else {
                     let f = offset as f64 + rel as f64 / stretch;
                     let x0 = f.floor();
                     let fr = (f - x0) as f32;
-                    let a = if x0 >= 0.0 { src.get(x0 as usize).copied().unwrap_or(0.0) } else { 0.0 };
-                    let b = if x0 + 1.0 >= 0.0 { src.get((x0 + 1.0) as usize).copied().unwrap_or(0.0) } else { 0.0 };
+                    let at = usize::try_from(x0 as i64 - w0).unwrap_or(usize::MAX);
+                    let a = w.get(at).copied().unwrap_or(0.0);
+                    let b = w.get(at.saturating_add(1)).copied().unwrap_or(0.0);
                     a + (b - a) * fr
                 };
                 let t = (k - i) as f32 / n;
