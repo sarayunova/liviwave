@@ -20,7 +20,7 @@ When you close a gap, delete its entry (or shrink it) in the same PR, and bump t
 | G-03 | **Alpha blocker.** Cannot exchange sessions with Pro Tools (no AAF/OMF, no `.ptx`) | File formats | [file-format-parity.md](file-format-parity.md) | 50–90 |
 | G-04 | Open correctness bugs in features counted as done (~25 issues) | Stability | this file | 25–40 |
 | G-05 | (Entitlement part: alpha blocker for the mix row) Third-party VST3s blocked in the signed macOS build; AU editors missing | Ecosystem | [plugin-parity.md](plugin-parity.md) | 15–25 |
-| G-06 | (Record-to-disk part: alpha blocker for the tracking row) Sources decoded whole into RAM; recording into RAM | Performance | [hardware-parity.md](hardware-parity.md) | 15–25 |
+| G-06 | (Record-to-disk part: alpha blocker for the tracking row) Sources other than long WAVs at the session rate are decoded whole into RAM | Performance | [hardware-parity.md](hardware-parity.md) | 15–25 |
 | G-07 | Nothing is compared against Pro Tools' output (no fidelity harness) | Features | this file | 20–30 |
 | G-08 | Built-in plugin catalogue thin and unverified | Features | [plugin-parity.md](plugin-parity.md) | 80–120 |
 | G-09 | English only, no string catalog, no CJK/RTL rendering | Localization | [localization-parity.md](localization-parity.md) | 70–110 |
@@ -126,14 +126,17 @@ launch #142; Linux #45, #107.
 
 - **Done:** recording streams to one WAV file per take while it records (header rewritten every
   second), and crash recovery places the takes of a recording that never finished.
-- **Missing:** streaming sources from disk. Every source, a finished take included, is decoded
-  whole into the `SourcePool`. Recovered takes are placed without the record offset.
-- **Streaming plan:** (1) the mix reads sources only through `SourceAudio::read` (done 2026-10-29,
-  memory-backed); (2) a disk-backed source behind it, with a block cache that a prefetch thread
-  fills ahead of the play position (the audio thread never touches the disk): `DiskStream` and
-  `WavReader` exist and are tested (2026-10-29), but nothing uses them yet; (3) use it for
-  long WAV files and finished takes; other formats stay decoded. Waveform peaks, the sampler,
-  AudioSuite, bounce and autosave still need whole buffers and load them on demand.
+- **Done (2026-10-29):** long sources stream from disk. A session opens WAV files of 128 MiB or
+  more that are already at the session rate as `DiskStream`s (block cache filled by a prefetch
+  thread; the audio thread never touches the disk, a late block plays silence and is counted).
+  Play and locate load the audio at the start position first. Waveforms of streamed sources are
+  drawn from the overview blocks (32-sample detail). Sampler samples stay in memory. Saves,
+  bundles, autosave, split-to-mono and time-stretch decode a streamed file whole on demand.
+- **Missing:** other formats and files at another rate still decode whole; fresh imports and
+  finished takes are not streamed until the session is reopened; no hardware test of dropouts yet
+  (`SourceAudio::misses` counts them, nothing shows it); autosave and Save As decode a streamed
+  file whole each time; the cache is allocated per source up front (~2 MB stereo). Recovered
+  takes are placed without the record offset.
 - **Impact:** hour-long multitrack sessions exhaust memory.
 - **Estimate:** ≈ 15–25 h.
 
