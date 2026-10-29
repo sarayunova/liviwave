@@ -48,18 +48,54 @@ impl Block {
     }
 }
 
+/// Builds the overview of one channel from samples that arrive in pieces (a file read a block at a
+/// time), with the same result as [`Peaks::build`] on all of them at once.
+#[derive(Debug, Default)]
+pub struct PeaksBuilder {
+    len: usize,
+    level0: Vec<Block>,
+    partial: Option<(Block, usize)>,
+}
+
+impl PeaksBuilder {
+    pub fn push(&mut self, samples: &[f32]) {
+        for &s in samples {
+            let (block, filled) = self.partial.take().unwrap_or((Block::EMPTY, 0));
+            let block = block.merge(Block::point(s));
+            if filled + 1 == BLOCK {
+                self.level0.push(block);
+            } else {
+                self.partial = Some((block, filled + 1));
+            }
+        }
+        self.len += samples.len();
+    }
+
+    pub fn finish(mut self) -> Peaks {
+        if let Some((block, _)) = self.partial.take() {
+            self.level0.push(block);
+        }
+        if self.len == 0 { Peaks::default() } else { Peaks::from_blocks(self.len, self.level0) }
+    }
+}
+
 impl Peaks {
     /// Build the overview of `samples` (one channel). NaN samples are ignored.
     pub fn build(samples: &[f32]) -> Peaks {
         if samples.is_empty() {
             return Peaks::default();
         }
-        let mut levels: Vec<Vec<Block>> = vec![samples.chunks(BLOCK).map(Block::of).collect()];
+        Peaks::from_blocks(samples.len(), samples.chunks(BLOCK).map(Block::of).collect())
+    }
+
+    /// The overview of `len` samples whose level-0 blocks are `level0`.
+    fn from_blocks(len: usize, level0: Vec<Block>) -> Peaks {
+        let mut levels = vec![level0];
         while let Some(last) = levels.last().filter(|l| l.len() > 1) {
             let next = last.chunks(FANOUT).map(|c| c.iter().fold(Block::EMPTY, |a, &b| a.merge(b))).collect();
             levels.push(next);
         }
-        Peaks { len: samples.len(), levels }
+        Peaks { len, levels }
     }
 
     /// Number of samples the overview was built from.
@@ -155,6 +191,17 @@ impl Peaks {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_builder_fed_in_pieces_equals_building_at_once() {
+        let x: Vec<f32> = (0..1000).map(|i| ((i * 37) % 101) as f32 / 50.0 - 1.0).collect();
+        for pieces in [1usize, 7, 32, 33, 999, 1000] {
+            let mut b = PeaksBuilder::default();
+            x.chunks(pieces).for_each(|c| b.push(c));
+            assert_eq!(b.finish(), Peaks::build(&x), "pieces of {pieces}");
+        }
+        assert_eq!(PeaksBuilder::default().finish(), Peaks::build(&[]));
+    }
+
     use super::*;
 
     fn brute(samples: &[f32], start: usize, end: usize) -> (f32, f32) {

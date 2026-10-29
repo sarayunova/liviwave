@@ -2,7 +2,8 @@
 //! movies video clips reference.
 
 use crate::SourceId;
-use liviwave_audio_io::{AudioBuffer, FileFormat, peaks::Peaks};
+use crate::stream::DiskStream;
+use liviwave_audio_io::{AudioBuffer, FileFormat, WavReader, peaks::Peaks, peaks::PeaksBuilder};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -59,20 +60,86 @@ impl VideoSource {
 }
 
 /// Decoded audio plus waveform overviews (not serialised).
+///
+/// A source streamed from disk ([`SourceAudio::streamed`]) has no samples in `buffer`: only its
+/// sample rate. Read it through [`SourceAudio::read`], and ask [`SourceAudio::whole`] for all of
+/// it where the whole buffer is needed.
 #[derive(Debug)]
 pub struct SourceAudio {
     pub buffer: AudioBuffer,
     pub peaks: Vec<Peaks>,
+    stream: Option<(DiskStream, std::path::PathBuf)>,
 }
 
 impl SourceAudio {
     pub fn new(buffer: AudioBuffer) -> Self {
         let peaks = buffer.channels.iter().map(|c| Peaks::build(c)).collect();
-        SourceAudio { buffer, peaks }
+        SourceAudio { buffer, peaks, stream: None }
     }
+
+    /// The audio of the WAV file at `path`, read from disk as it plays. The overviews are built
+    /// from one pass over the file. `Ok(None)` when the file cannot be streamed.
+    pub fn streamed(path: impl AsRef<std::path::Path>) -> Result<Option<SourceAudio>, String> {
+        /// Frames read at a time while the overviews are built.
+        const PASS: usize = 1 << 16;
+        let path = path.as_ref();
+        let Some(stream) = DiskStream::open(path)? else { return Ok(None) };
+        let Some(mut reader) = WavReader::open(path).map_err(|e| e.to_string())? else { return Ok(None) };
+        let mut builders: Vec<PeaksBuilder> = (0..stream.channels()).map(|_| PeaksBuilder::default()).collect();
+        let mut at = 0u64;
+        while at < stream.frames() {
+            let block = reader.read(at, PASS).map_err(|e| e.to_string())?;
+            let got = block.first().map_or(0, Vec::len);
+            if got == 0 {
+                break;
+            }
+            for (b, ch) in builders.iter_mut().zip(&block) {
+                b.push(ch);
+            }
+            at += got as u64;
+        }
+        let peaks = builders.into_iter().map(PeaksBuilder::finish).collect();
+        let buffer = AudioBuffer { sample_rate: stream.sample_rate(), channels: Vec::new() };
+        Ok(Some(SourceAudio { buffer, peaks, stream: Some((stream, path.to_path_buf())) }))
+    }
+
+    /// Whether the samples are read from disk as they play, not held in `buffer`.
+    pub fn is_streamed(&self) -> bool {
+        self.stream.is_some()
+    }
+
     pub fn frames(&self) -> usize {
-        self.buffer.frames()
+        self.stream.as_ref().map_or_else(|| self.buffer.frames(), |(s, _)| usize::try_from(s.frames()).unwrap_or(usize::MAX))
     }
+
+    pub fn channel_count(&self) -> usize {
+        self.stream.as_ref().map_or_else(|| self.buffer.channels.len(), |(s, _)| s.channels())
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.buffer.sample_rate
+    }
+
+    /// Load the audio around `frame` before playback starts there (a streamed source only).
+    pub fn prime(&self, frame: u64) {
+        if let Some((s, _)) = &self.stream {
+            s.prime(frame, std::time::Duration::from_millis(250));
+        }
+    }
+
+    /// Blocks of a streamed source that were not loaded in time and played as silence so far.
+    pub fn misses(&self) -> u64 {
+        self.stream.as_ref().map_or(0, |(s, _)| s.misses())
+    }
+
+    /// All the audio in memory: `buffer` itself, or for a streamed source the file decoded whole.
+    pub fn whole(&self) -> Result<std::borrow::Cow<'_, AudioBuffer>, String> {
+        let Some((_, path)) = &self.stream else { return Ok(std::borrow::Cow::Borrowed(&self.buffer)) };
+        let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let (_, buf) = liviwave_audio_io::decode(&bytes, Some("wav")).map_err(|e| format!("{}: {e}", path.display()))?;
+        Ok(std::borrow::Cow::Owned(buf))
+    }
+
     pub fn channel(&self, ch: usize) -> Option<&[f32]> {
         self.buffer.channels.get(ch).map(Vec::as_slice)
     }
@@ -80,6 +147,10 @@ impl SourceAudio {
     /// Fill `out` with channel `ch` from frame `start` on; frames outside the audio read as
     /// silence. The one way the mix reads sources, so how they are stored can change behind it.
     pub fn read(&self, ch: usize, start: i64, out: &mut [f32]) {
+        if let Some((s, _)) = &self.stream {
+            s.read(ch, start, out);
+            return;
+        }
         out.fill(0.0);
         let Some(src) = self.channel(ch) else { return };
         let from = start.max(0);
@@ -163,5 +234,55 @@ mod read_tests {
         assert_eq!(out, [0.0; 4]);
         a.read(5, 0, &mut out);
         assert_eq!(out, [0.0; 4]);
+    }
+}
+
+#[cfg(test)]
+mod streamed_tests {
+    use super::*;
+    use liviwave_audio_io::{BitDepth, EncodeOptions, encode};
+
+    #[test]
+    fn a_streamed_source_reads_and_peaks_like_the_same_audio_in_memory() {
+        let frames = 70_000;
+        let mut b = AudioBuffer::new(48_000, 2, frames);
+        for i in 0..frames {
+            b.channels[0][i] = (i % 977) as f32 / 977.0 - 0.5;
+            b.channels[1][i] = ((i * 7) % 311) as f32 / 311.0;
+        }
+        let opts = EncodeOptions { format: FileFormat::Wav, bit_depth: BitDepth::Float32, dither: false, bwf: None };
+        let path = std::env::temp_dir().join(format!("liviwave-streamed-{}.wav", std::process::id()));
+        std::fs::write(&path, encode(&b, &opts).unwrap()).unwrap();
+
+        let ram = SourceAudio::new(b);
+        let disk = SourceAudio::streamed(&path).unwrap().unwrap();
+        assert!(disk.is_streamed() && !ram.is_streamed());
+        assert_eq!((disk.frames(), disk.channel_count(), disk.sample_rate()), (frames, 2, 48_000));
+        assert!(disk.buffer.channels.is_empty());
+        assert_eq!(disk.peaks, ram.peaks);
+
+        disk.prime(40_000);
+        let (mut want, mut got) = ([0.0; 300], [0.0; 300]);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while std::time::Instant::now() < deadline {
+            disk.read(1, 40_000, &mut got);
+            ram.read(1, 40_000, &mut want);
+            if got == want {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        assert_eq!(got, want);
+        assert_eq!(disk.whole().unwrap().channels, ram.buffer.channels);
+        assert!(matches!(ram.whole().unwrap(), std::borrow::Cow::Borrowed(_)));
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_streamed_is_not() {
+        let path = std::env::temp_dir().join(format!("liviwave-streamed-{}-junk.wav", std::process::id()));
+        std::fs::write(&path, b"not audio").unwrap();
+        assert!(SourceAudio::streamed(&path).is_err());
+        let _ = std::fs::remove_file(path);
     }
 }
