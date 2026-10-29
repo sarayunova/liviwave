@@ -630,7 +630,12 @@ mod tests {
 struct RingState {
     data: std::collections::VecDeque<f32>,
     phase: f64,
+    /// Smoothed read-rate correction (1.0 = nominal) that holds the fill at its target.
+    trim: f64,
 }
+
+/// Largest read-rate correction: 0.5 %, about 8 cents, which monitoring cannot hear.
+const MAX_TRIM: f64 = 0.005;
 
 /// A small interleaved FIFO from the input callback to the output callback, for input
 /// monitoring. Both sides only `try_lock`; it holds at most ~0.5 s and drops the oldest frames.
@@ -650,7 +655,7 @@ impl InputRing {
         let ch = channels.max(1);
         let frames = if rate == 0 { 24_000 } else { rate as usize / 2 };
         Arc::new(InputRing {
-            state: Mutex::new(RingState { data: std::collections::VecDeque::with_capacity(rate.max(48_000) as usize * ch), phase: 0.0 }),
+            state: Mutex::new(RingState { data: std::collections::VecDeque::with_capacity(rate.max(48_000) as usize * ch), phase: 0.0, trim: 1.0 }),
             channels: std::sync::atomic::AtomicUsize::new(ch),
             rate,
             cap: frames * ch,
@@ -675,7 +680,20 @@ impl InputRing {
         }
         let Ok(mut s) = self.state.try_lock() else { return };
         // Input frames consumed per output frame.
-        let step = if self.rate == 0 || session_rate == 0 { 1.0 } else { f64::from(self.rate) / f64::from(session_rate) };
+        let nominal = if self.rate == 0 || session_rate == 0 { 1.0 } else { f64::from(self.rate) / f64::from(session_rate) };
+        // The output clock is the master. Hold about two blocks of input (plus a millisecond of
+        // jitter room) buffered: a backlog (input started first, or a stall) is dropped at once,
+        // and clock drift between the two devices is absorbed by reading slightly faster or slower.
+        let target = ((frames as f64 * nominal) * 2.0 + f64::from(self.rate.max(1)) / 1000.0).ceil();
+        let fill = (s.data.len() / ch) as f64 - s.phase;
+        if fill > target * 3.0 {
+            let drop = ((fill - target) as usize).min(s.data.len() / ch);
+            s.data.drain(..drop * ch);
+        }
+        let fill = (s.data.len() / ch) as f64 - s.phase;
+        let want = 1.0 + ((fill - target) / (target * 20.0)).clamp(-MAX_TRIM, MAX_TRIM);
+        s.trim += (want - s.trim) * 0.05;
+        let step = nominal * s.trim;
         for f in 0..frames {
             // Drop input frames we have moved past; keep the one at `phase` and the next one.
             while s.phase >= 1.0 && s.data.len() >= 2 * ch {
@@ -702,48 +720,59 @@ impl InputRing {
 mod ring_tests {
     use super::InputRing;
 
+    /// Feed `ring` like the two callbacks do: `push` input frames in, then `pop` output frames out,
+    /// `blocks` times; returns the first channel of everything read. `input(i)` is the i-th frame.
+    fn run(ring: &InputRing, channels: usize, push: usize, pop: usize, blocks: usize, input: impl Fn(usize) -> f32, session: u32) -> Vec<f32> {
+        let (mut i, mut got) = (0, Vec::new());
+        let mut out = vec![vec![0.0f32; pop]; channels];
+        for _ in 0..blocks {
+            let block: Vec<f32> = (0..push).flat_map(|k| (0..channels).map(move |c| (k, c))).map(|(k, c)| input(i + k) + c as f32 * 1000.0).collect();
+            i += push;
+            ring.push(&block);
+            ring.pop_into(&mut out, pop, session);
+            got.extend_from_slice(&out[0]);
+        }
+        got
+    }
+
+    fn crossings(x: &[f32]) -> usize {
+        x.windows(2).filter(|w| w[0] <= 0.0 && w[1] > 0.0).count()
+    }
+
     /// A 1 kHz sine recorded at 16 kHz must come out as a 1 kHz sine at 48 kHz, across calls.
     #[test]
     fn monitor_converts_input_rate_to_session_rate() {
         let ring = InputRing::new(1, 16_000);
-        let input: Vec<f32> = (0..4_000).map(|i| (2.0 * std::f64::consts::PI * 1_000.0 * f64::from(i) / 16_000.0).sin() as f32).collect();
-        ring.push(&input);
-        let mut out = vec![vec![0.0f32; 48]];
-        let mut k = 0usize;
-        for _ in 0..10 {
-            ring.pop_into(&mut out, 48, 48_000);
-            for v in &out[0] {
-                let want = (2.0 * std::f64::consts::PI * 1_000.0 * k as f64 / 48_000.0).sin() as f32;
-                assert!((v - want).abs() < 0.05, "sample {k}: got {v}, want {want}");
-                k += 1;
-            }
-        }
+        let sine = |i: usize| (2.0 * std::f64::consts::PI * 1_000.0 * i as f64 / 16_000.0).sin() as f32;
+        let got = run(&ring, 1, 16, 48, 300, sine, 48_000);
+        // 100 ms after the ring settles: 100 cycles of 1 kHz, within the servo's 0.5 %.
+        let settled = &got[48 * 100..48 * 200];
+        let n = crossings(settled);
+        assert!((97..=103).contains(&n), "{n} cycles in 100 ms");
     }
 
-    /// Input faster than the session (96 kHz into 48 kHz): every other frame is read, in order.
+    /// Input faster than the session (96 kHz into 48 kHz): about every other frame is read, in order.
     #[test]
     fn monitor_decimates_when_input_is_faster() {
         let ring = InputRing::new(1, 96_000);
-        let input: Vec<f32> = (0..1_000).map(|i| i as f32).collect();
-        ring.push(&input);
-        let mut out = vec![vec![0.0f32; 100]];
-        ring.pop_into(&mut out, 100, 48_000);
-        for (k, v) in out[0].iter().enumerate() {
-            assert_eq!(*v, (2 * k) as f32, "output {k}");
-        }
+        let got = run(&ring, 1, 200, 100, 50, |i| i as f32, 48_000);
+        let tail = &got[got.len() - 1000..];
+        assert!(tail.windows(2).all(|w| (1.9..=2.1).contains(&(w[1] - w[0]))), "{:?}", &tail[..8]);
     }
 
-    /// Same rate: samples pass through unchanged.
+    /// Same rate: frames pass through in order and the channels stay paired.
     #[test]
     fn monitor_passes_through_at_equal_rates() {
         let ring = InputRing::new(2, 48_000);
-        let input: Vec<f32> = (0..200).map(|i| i as f32).collect();
-        ring.push(&input);
-        let mut out = vec![vec![0.0f32; 50], vec![0.0f32; 50]];
-        ring.pop_into(&mut out, 50, 48_000);
-        assert_eq!(out[0][0], 0.0);
-        assert_eq!(out[1][0], 1.0);
-        assert_eq!(out[0][49], 98.0);
+        let (mut i, mut out) = (0usize, vec![vec![0.0f32; 50], vec![0.0f32; 50]]);
+        for _ in 0..40 {
+            let block: Vec<f32> = (i..i + 50).flat_map(|f| [f as f32, f as f32 + 1000.0]).collect();
+            i += 50;
+            ring.push(&block);
+            ring.pop_into(&mut out, 50, 48_000);
+        }
+        assert!(out[0].windows(2).all(|w| (0.99..=1.01).contains(&(w[1] - w[0]))), "{:?}", &out[0][..8]);
+        assert!(out[0].iter().zip(&out[1]).all(|(a, b)| (b - a - 1000.0).abs() < 0.01));
     }
 
     /// Nothing buffered: silence, not stale data.
@@ -762,6 +791,37 @@ mod ring_tests {
         ring.push(&[0.5, f32::NAN, f32::INFINITY, -0.5, 0.0, 0.0, 0.0, 0.0]);
         let mut out = vec![vec![1.0f32; 4]];
         ring.pop_into(&mut out, 4, 48_000);
-        assert_eq!(out[0], [0.5, 0.0, 0.0, -0.5]);
+        assert!(out[0].iter().all(|v| v.is_finite() && v.abs() <= 0.5), "{:?}", out[0]);
+    }
+
+    /// Input that ran for a while before the output started is not monitored half a second late:
+    /// the backlog is dropped and the newest audio plays.
+    #[test]
+    fn monitor_drops_a_backlog_instead_of_playing_it_late() {
+        let ring = InputRing::new(1, 48_000);
+        ring.push(&(0..24_000).map(|i| i as f32).collect::<Vec<_>>());
+        let mut out = vec![vec![0.0f32; 64]];
+        ring.pop_into(&mut out, 64, 48_000);
+        assert!(out[0][0] > 24_000.0 - 1_000.0, "first frame read was {}", out[0][0]);
+    }
+
+    /// Two devices on separate clocks: an input 0.2 % fast must not build up latency over minutes.
+    #[test]
+    fn monitor_holds_its_fill_while_the_input_clock_drifts() {
+        let ring = InputRing::new(1, 48_000);
+        let mut out = vec![vec![0.0f32; 64]];
+        let mut owed = 0.0f64;
+        let mut worst = 0usize;
+        for block in 0..48_000 * 60 / 64 {
+            owed += 64.0 * 1.002;
+            let n = owed as usize;
+            owed -= n as f64;
+            ring.push(&vec![0.1; n]);
+            ring.pop_into(&mut out, 64, 48_000);
+            if block > 2_000 {
+                worst = worst.max(ring.state.lock().map_or(usize::MAX, |s| s.data.len()));
+            }
+        }
+        assert!(worst < 400, "{worst} frames buffered after a minute of drift");
     }
 }
