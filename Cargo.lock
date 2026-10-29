@@ -2702,6 +2702,7 @@ dependencies = [
  "liviwave-audio-io",
  "liviwave-midi",
  "liviwave-time",
+ "log",
  "proptest",
  "serde",
  "serde_json",

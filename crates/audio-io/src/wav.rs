@@ -189,10 +189,16 @@ struct DataChunk {
 
 /// Bytes of audio a `data` chunk holds: leniently, whatever is present when the size is wrong or
 /// the recording was never finalised.
-fn data_chunk_len(b: &[u8], c: DataChunk) -> usize {
-    let finished = u64::from(le_u32(b, 4).unwrap_or(0)) + 8 == b.len() as u64;
+///
+/// `total` is the size of the whole file; `b` may be only its start. A size of 0 cannot be told from
+/// an empty chunk before metadata without the end of the file, so then `None`.
+fn data_chunk_len(b: &[u8], c: DataChunk, total: u64) -> Option<usize> {
+    if c.size32 == 0 && !c.is_rf64 && b.len() as u64 != total {
+        return None;
+    }
+    let finished = u64::from(le_u32(b, 4).unwrap_or(0)) + 8 == total;
     let empty = c.size32 == 0 && !c.is_rf64 && finished && only_chunks_follow(b, c.body);
-    if c.size32 == 0 && !c.is_rf64 && !empty { c.remaining } else { c.declared.min(c.remaining) }
+    Some(if c.size32 == 0 && !c.is_rf64 && !empty { c.remaining } else { c.declared.min(c.remaining) })
 }
 
 /// The sample layout of a `fmt` chunk, `None` for a format we do not read natively.
@@ -218,6 +224,12 @@ fn pcm_layout(fmt: &Fmt) -> Result<Option<(PcmKind, SampleFormat)>> {
 }
 
 pub(crate) fn parse(b: &[u8]) -> Result<WavParse> {
+    parse_at(b, b.len() as u64)
+}
+
+/// Parse a WAV whose first bytes are `b` and whose whole size is `total`: the header chunks and
+/// the start of `data` must lie within `b`.
+pub(crate) fn parse_at(b: &[u8], total: u64) -> Result<WavParse> {
     if !is_wav(b) {
         return Err(AudioError::Malformed("not a RIFF/RF64 WAVE file".into()));
     }
@@ -236,7 +248,7 @@ pub(crate) fn parse(b: &[u8]) -> Result<WavParse> {
             break;
         }
         let body = pos.checked_add(8).ok_or_else(|| AudioError::Malformed("chunk offset overflow".into()))?;
-        let remaining = b.len().saturating_sub(body);
+        let remaining = usize::try_from(total).unwrap_or(usize::MAX).saturating_sub(body);
         let mut size = u64::from(size32);
         if &id == b"data" && is_rf64 && size32 == u32::MAX {
             size = ds64_data.unwrap_or(remaining as u64);
@@ -248,7 +260,8 @@ pub(crate) fn parse(b: &[u8]) -> Result<WavParse> {
             // A size of 0 in a file whose RIFF size is right and that has only chunks after it is an
             // empty data chunk followed by metadata (LIST, bext, …); otherwise it is a recording
             // that was never finalised, and what follows is audio.
-            let len = data_chunk_len(b, DataChunk { body, size32, is_rf64, remaining, declared });
+            let len = data_chunk_len(b, DataChunk { body, size32, is_rf64, remaining, declared }, total)
+                .ok_or_else(|| AudioError::Unsupported("WAV data size is unknown and the file is read in parts".into()))?;
             if data.is_none() {
                 data = Some((body, len));
             }

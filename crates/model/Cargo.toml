@@ -10,6 +10,7 @@ repository.workspace = true
 [dependencies]
 liviwave-time.workspace = true
 liviwave-audio-io.workspace = true
+log.workspace = true
 liviwave-midi.workspace = true
 serde.workspace = true
 serde_json.workspace = true

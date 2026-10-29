@@ -13,6 +13,7 @@ mod markers;
 mod mixer;
 mod session;
 mod source;
+pub mod stream;
 mod track;
 
 pub use automation::{AutoParam, AutomationLane, AutomationMode, AutomationPoint};
@@ -27,6 +28,7 @@ pub use session::{
     Tool, TrackView, ZoomState, ZoomToggle, truncate_chars,
 };
 pub use source::{Source, SourceAudio, SourcePool, VideoSource};
+pub use stream::DiskStream;
 pub use track::{Playlist, TRACK_COLORS, Track, TrackHeight, TrackKind};
 
 pub use liviwave_time as time;

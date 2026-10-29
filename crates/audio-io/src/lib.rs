@@ -23,9 +23,11 @@ mod pcm;
 pub mod peaks;
 mod symph;
 mod wav;
+mod wav_reader;
 
 pub use buffer::AudioBuffer;
 use std::io::{Seek, Write};
+pub use wav_reader::WavReader;
 
 /// Errors from probing, decoding and encoding.
 #[derive(Debug, thiserror::Error)]
