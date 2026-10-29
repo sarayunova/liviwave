@@ -131,12 +131,14 @@ launch #142; Linux #45, #107.
   thread; the audio thread never touches the disk, a late block plays silence and is counted).
   Play and locate load the audio at the start position first. Waveforms of streamed sources are
   drawn from the overview blocks (32-sample detail). Sampler samples stay in memory. Saves,
-  bundles, autosave, split-to-mono and time-stretch decode a streamed file whole on demand.
-- **Missing:** other formats and files at another rate still decode whole; fresh imports and
-  finished takes are not streamed until the session is reopened; no hardware test of dropouts yet
-  (`SourceAudio::misses` counts them, nothing shows it); autosave and Save As decode a streamed
-  file whole each time; the cache is allocated per source up front (~2 MB stereo). Recovered
-  takes are placed without the record offset.
+  bundles, autosave, split-to-mono and time-stretch decode a streamed file whole on demand,
+  except Save As and Save Session Copy, which copy the WAV as it is. Files imported from the app
+  (decoded on a worker thread) stream by the same rule.
+- **Missing:** other formats and files at another rate still decode whole; imports run by command
+  or script and finished takes are not streamed until the session is reopened; bundles decode
+  streamed files whole; no hardware test of dropouts yet (`SourceAudio::misses` counts them,
+  nothing shows it); the cache is allocated per source up front (~2 MB stereo). Recovered takes
+  are placed without the record offset.
 - **Impact:** hour-long multitrack sessions exhaust memory.
 - **Estimate:** ≈ 15–25 h.
 
