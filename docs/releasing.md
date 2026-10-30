@@ -7,7 +7,7 @@ publishes it.
 
 This is LiVi Wave's implementation of the shared [release playbook](release-playbook.md).
 User-facing names say **LiVi Wave**. Files, binaries and ids stay lowercase
-(`liviwave-<version>-<platform>-<arch>.<ext>`, `ai.storyteller.liviwave`).
+(`liviwave-<version>-<platform>-<arch>.<ext>`, `com.liviverse.wave`).
 
 ## Cutting a release
 
@@ -56,9 +56,9 @@ web build and are checked, the signing jobs are refused, and no release is draft
 | FreeBSD 14 x86_64 | `liviwave-<v>-freebsd-x86_64.tar.gz` (a `/usr/local` tree) | FreeBSD 14.3 VM on `ubuntu-latest` |
 | Web | `liviwave-web-<v>.zip` (static site; see [`packaging/web/README.md`](../packaging/web/README.md)) | `ubuntu-latest` |
 
-The from-source Flatpak manifest (`packaging/linux/flatpak/ai.storyteller.liviwave.yml`) is
+The from-source Flatpak manifest (`packaging/linux/flatpak/com.liviverse.wave.yml`) is
 kept ready for a Flathub submission; the release's `.flatpak` bundles come from
-`ai.storyteller.liviwave.bundle.yml` (see Linux below).
+`com.liviverse.wave.bundle.yml` (see Linux below).
 
 ### Audio libraries
 
@@ -83,8 +83,8 @@ plugins), and WebAudio in the browser.
 `packaging/macos/package.sh` builds `aarch64-apple-darwin` and `x86_64-apple-darwin` with
 `MACOSX_DEPLOYMENT_TARGET=11.0`, joins them with `lipo`, and assembles `LiViWave.app`:
 
-- `Info.plist` is generated from `Info.plist.in`. The bundle id is `ai.storyteller.liviwave`.
-  It declares the `.scraft` session type (`ai.storyteller.liviwave.session`, MIME
+- `Info.plist` is generated from `Info.plist.in`. The bundle id is `com.liviverse.wave`.
+  It declares the `.scraft` session type (`com.liviverse.wave.session`, MIME
   `application/x-liviwave-session`, role Editor, rank Owner) and lists WAV, AIFF/AIFC, FLAC,
   MP3 and MIDI as Viewer/Alternate, so LiVi Wave appears under *Open With* without taking over
   the default player. `NSMicrophoneUsageDescription` explains the recording prompt.
@@ -138,7 +138,7 @@ Locally on Windows: `dotnet tool install -g wix --version 5.0.2`, then
 ### Linux
 
 `packaging/linux/package.sh` stages one FHS tree and makes every format from it: both binaries,
-`ai.storyteller.liviwave.desktop` (with `MimeType=` for sessions, WAV, AIFF, FLAC, MP3 and
+`com.liviverse.wave.desktop` (with `MimeType=` for sessions, WAV, AIFF, FLAC, MP3 and
 MIDI), hicolor icons from 16 px to 512 px plus a scalable SVG, AppStream metainfo, and a
 shared-mime-info file declaring `application/x-liviwave-session` (`*.scraft`), and
 `liviwave-cli`'s man pages and bash, zsh and fish completions. The `man-and-completions` example,
@@ -156,14 +156,14 @@ Debian's zsh reads instead.
   `postinst.sh` hook refreshes the desktop, MIME and icon caches.
 - **.tar.gz** for people who manage their own `/opt` or `~/.local`.
 - **Flatpak**: the `flatpak` job runs `packaging/linux/flatpak-bundle.sh` on the Linux job's
-  tarball (no Rust build) with `flatpak/ai.storyteller.liviwave.bundle.yml`, then installs the
+  tarball (no Rust build) with `flatpak/com.liviverse.wave.bundle.yml`, then installs the
   bundle and runs `liviwave-cli --version` in the sandbox. Install with
   `flatpak install --user liviwave-<v>-linux-<arch>.flatpak`. Both manifests use the freedesktop
   25.08 runtime with Wayland/X11, `dri`, PulseAudio and `xdg-music`; other files go through the
   portals. For the VST3 and CLAP hosts they grant `~/.vst3` and `~/.clap` read-only and mount
   Flathub's `org.freedesktop.LinuxAudio.Plugins` extensions (pointed to by `VST3_PATH` and
   `CLAP_PATH`); system plugin folders aren't visible in the sandbox.
-  `ai.storyteller.liviwave.yml` builds from source for Flathub and needs vendored crates
+  `com.liviverse.wave.yml` builds from source for Flathub and needs vendored crates
   (`cargo-sources.json` from `flatpak-cargo-generator.py`); the commands are in its header.
 
 Binaries are built on Ubuntu 22.04 and need **glibc ≥ 2.35**. X11, Wayland, xkbcommon, Vulkan
@@ -198,7 +198,7 @@ are written with `umask 077` and deleted in `always()`/`finally` steps.
 
 | Secret | Used for |
 |---|---|
-| `APPLE_CERTIFICATE` | base64 `.p12` with "Developer ID Application: Learning Machines LLC (DJ6XS33FX8)" |
+| `APPLE_CERTIFICATE` | base64 `.p12` with "Developer ID Application: LiVi Enterprises (<team id>)" |
 | `APPLE_CERTIFICATE_PASSWORD` | password for that `.p12` |
 | `KEYCHAIN_PASSWORD` | password for the temporary CI keychain (random if unset) |
 | `APPLE_ID` | Apple ID used by `notarytool` |

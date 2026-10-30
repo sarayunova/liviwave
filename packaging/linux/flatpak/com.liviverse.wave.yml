@@ -4,18 +4,18 @@
 #
 #   curl -fsSLO https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py
 #   python3 flatpak-cargo-generator.py Cargo.lock -o packaging/linux/flatpak/cargo-sources.json
-#   flatpak-builder --user --install --force-clean build-flatpak packaging/linux/flatpak/ai.storyteller.liviwave.yml
-#   flatpak run ai.storyteller.liviwave
+#   flatpak-builder --user --install --force-clean build-flatpak packaging/linux/flatpak/com.liviverse.wave.yml
+#   flatpak run com.liviverse.wave
 #
 # For Flathub, replace the `dir` source with a `git` source pinned to a release tag and commit.
-# ai.storyteller.liviwave.bundle.yml repackages the release tarball into the .flatpak attached
+# com.liviverse.wave.bundle.yml repackages the release tarball into the .flatpak attached
 # to each GitHub release; keep runtime-version, finish-args and add-extensions identical in both
 # (packaging-lint checks this).
 #
 # Audio: cpal talks to ALSA. alsa-lib (headers in the Sdk, the library in the Platform) and its
 # PulseAudio plugin ship with the freedesktop runtime, which routes ALSA through the PulseAudio
 # socket (PipeWire's pulse server on modern desktops), so no extra module is needed.
-id: ai.storyteller.liviwave
+id: com.liviverse.wave
 runtime: org.freedesktop.Platform
 runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
@@ -73,14 +73,14 @@ modules:
       - install -Dm755 target/release/liviwave /app/bin/liviwave
       - install -Dm644 NOTICE /app/share/doc/liviwave/NOTICE
       - install -Dm755 target/release/liviwave-cli /app/bin/liviwave-cli
-      - install -Dm644 packaging/linux/ai.storyteller.liviwave.desktop /app/share/applications/ai.storyteller.liviwave.desktop
-      - install -Dm644 packaging/linux/ai.storyteller.liviwave.mime.xml /app/share/mime/packages/ai.storyteller.liviwave.xml
+      - install -Dm644 packaging/linux/com.liviverse.wave.desktop /app/share/applications/com.liviverse.wave.desktop
+      - install -Dm644 packaging/linux/com.liviverse.wave.mime.xml /app/share/mime/packages/com.liviverse.wave.xml
       - mkdir -p /app/share/icons && cp -R assets/app-icon/hicolor /app/share/icons/
       - >-
         version=$(awk '/^\[/{p=($0=="[workspace.package]");next} p&&$1=="version"{gsub(/[" ]/,"",$3);print $3;exit}' Cargo.toml);
         install -d /app/share/metainfo;
         sed -e "s/@VERSION@/$version/" -e "s/@DATE@/$(date -u +%Y-%m-%d)/"
-        packaging/linux/ai.storyteller.liviwave.metainfo.xml.in > /app/share/metainfo/ai.storyteller.liviwave.metainfo.xml
+        packaging/linux/com.liviverse.wave.metainfo.xml.in > /app/share/metainfo/com.liviverse.wave.metainfo.xml
       # Mount point for the plugin extensions (add-extensions).
       - install -d /app/extensions/Plugins
     sources:

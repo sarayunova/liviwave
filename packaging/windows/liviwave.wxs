@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-  <Package Name="LiVi Wave" Manufacturer="Learning Machines LLC" Version="$(var.Version)" UpgradeCode="EE53D3E5-D0AE-40F9-808D-9417FDEBF61A" Scope="perUserOrMachine" Compressed="yes" Language="1033">
-    <SummaryInformation Description="LiVi Wave digital audio workstation" Manufacturer="Learning Machines LLC" />
+  <Package Name="LiVi Wave" Manufacturer="LiVi Enterprises" Version="$(var.Version)" UpgradeCode="EE53D3E5-D0AE-40F9-808D-9417FDEBF61A" Scope="perUserOrMachine" Compressed="yes" Language="1033">
+    <SummaryInformation Description="LiVi Wave digital audio workstation" Manufacturer="LiVi Enterprises" />
     <?include $(sys.SOURCEFILEDIR)install-policy.wxi?>
     <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
          (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->

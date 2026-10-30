@@ -2,13 +2,13 @@
 <!-- AppStream metadata (software centres, Flathub). Template: package.sh and the Flatpak
      manifest substitute @VERSION@ and @DATE@ from Cargo.toml and the build date. -->
 <component type="desktop-application">
-  <id>ai.storyteller.liviwave</id>
+  <id>com.liviverse.wave</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT OR Apache-2.0</project_license>
   <name>LiVi Wave</name>
   <summary>Record, edit and mix audio and MIDI</summary>
-  <developer id="ai.storyteller">
-    <name>Learning Machines LLC</name>
+  <developer id="com.liviverse">
+    <name>LiVi Enterprises</name>
   </developer>
   <description>
     <p>
@@ -23,8 +23,8 @@
       <li>A headless command line and an MCP server for scripting and agents</li>
     </ul>
   </description>
-  <launchable type="desktop-id">ai.storyteller.liviwave.desktop</launchable>
-  <icon type="stock">ai.storyteller.liviwave</icon>
+  <launchable type="desktop-id">com.liviverse.wave.desktop</launchable>
+  <icon type="stock">com.liviverse.wave</icon>
   <!-- Only url types known to appstream 0.15 (Ubuntu 22.04, where CI validates): no vcs-browser. -->
   <url type="homepage">https://github.com/sarayunova/liviwave</url>
   <url type="bugtracker">https://github.com/sarayunova/liviwave/issues</url>

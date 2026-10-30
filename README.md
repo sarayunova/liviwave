@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/app-icon/hicolor/256x256/apps/ai.storyteller.liviwave.png" width="128" height="128" alt="LiVi Wave icon: a glowing glass tile with a waveform">
+  <img src="assets/app-icon/hicolor/256x256/apps/com.liviverse.wave.png" width="128" height="128" alt="LiVi Wave icon: a glowing glass tile with a waveform">
 </p>
 
 <h1 align="center">LiVi Wave</h1>

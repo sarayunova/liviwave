@@ -13,7 +13,7 @@
   <key>CFBundleExecutable</key>
   <string>LiVi Wave</string>
   <key>CFBundleIdentifier</key>
-  <string>ai.storyteller.liviwave</string>
+  <string>com.liviverse.wave</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundlePackageType</key>
@@ -53,7 +53,7 @@
   <array>
     <dict>
       <key>UTTypeIdentifier</key>
-      <string>ai.storyteller.liviwave.session</string>
+      <string>com.liviverse.wave.session</string>
       <key>UTTypeDescription</key>
       <string>LiVi Wave Session</string>
       <key>UTTypeConformsTo</key>
@@ -85,7 +85,7 @@
       <key>CFBundleTypeIconFile</key>
       <string>LiVi Wave</string>
       <key>LSItemContentTypes</key>
-      <array><string>ai.storyteller.liviwave.session</string></array>
+      <array><string>com.liviverse.wave.session</string></array>
     </dict>
     <!-- Audio and MIDI: offered under "Open With" (imported into a session), never taking over
          the user's default player. -->

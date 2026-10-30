@@ -27,7 +27,7 @@ like the code, as the owner chooses (see `ATTRIBUTION.md`).
 | `liviwave-macos-512.png` | Runtime window/Dock icon on macOS (Apple grid margin) |
 | `liviwave.icns` | macOS bundle icon (128–1024 px PNG entries) |
 | `liviwave.ico` | Windows icon (16–256 px), embedded in `liviwave.exe` and used by the MSI |
-| `hicolor/<size>x<size>/apps/ai.storyteller.liviwave.png` | Linux/FreeBSD icon theme, 16–512 px, plus `scalable/` |
+| `hicolor/<size>x<size>/apps/com.liviverse.wave.png` | Linux/FreeBSD icon theme, 16–512 px, plus `scalable/` |
 
 `packaging/icons.sh` renders the set from `icon.svg` (needs `resvg`; `iconutil` on macOS for the
 `.icns`). Because `icon.svg` now wraps a raster, prefer re-cropping from the source image.

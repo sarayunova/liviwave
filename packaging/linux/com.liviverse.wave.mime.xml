@@ -6,7 +6,7 @@
   <mime-type type="application/x-liviwave-session">
     <comment>LiVi Wave session</comment>
     <sub-class-of type="application/json"/>
-    <icon name="ai.storyteller.liviwave"/>
+    <icon name="com.liviverse.wave"/>
     <glob pattern="*.scraft"/>
   </mime-type>
 </mime-info>

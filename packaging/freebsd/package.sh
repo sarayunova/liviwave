@@ -17,7 +17,7 @@ set -euo pipefail
 # shellcheck source=../env.sh
 . "$(dirname "${BASH_SOURCE[0]}")/../env.sh"
 LINUX="$ROOT/packaging/linux"
-APP_ID=ai.storyteller.liviwave
+APP_ID=com.liviverse.wave
 
 SKIP_BUILD=0
 while [[ $# -gt 0 ]]; do

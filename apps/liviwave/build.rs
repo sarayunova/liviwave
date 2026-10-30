@@ -16,7 +16,7 @@ fn main() {
     res.set_icon("../../assets/app-icon/liviwave.ico")
         .set("ProductName", "LiVi Wave")
         .set("FileDescription", "LiVi Wave digital audio workstation")
-        .set("CompanyName", "Learning Machines LLC")
+        .set("CompanyName", "LiVi Enterprises")
         .set("LegalCopyright", "Copyright (c) the LiVi Wave authors. MIT OR Apache-2.0.")
         .set("OriginalFilename", "liviwave.exe")
         .set("InternalName", "liviwave");

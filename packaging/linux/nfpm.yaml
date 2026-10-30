@@ -13,7 +13,7 @@ release: 1
 section: sound
 priority: optional
 maintainer: ${LIVIWAVE_MAINTAINER}
-vendor: Learning Machines LLC
+vendor: LiVi Enterprises
 homepage: https://github.com/sarayunova/liviwave
 license: MIT OR Apache-2.0
 description: |-
