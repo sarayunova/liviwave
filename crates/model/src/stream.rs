@@ -5,8 +5,8 @@
 //! A block that is not loaded in time reads as silence and is counted in [`DiskStream::misses`].
 
 use liviwave_audio_io::WavReader;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 /// Frames in a cache block (about a third of a second at 48 kHz).
@@ -26,7 +26,9 @@ struct Slot {
     /// The block held, or `NONE`. Set last when a block is stored and first when it is replaced.
     block: AtomicU64,
     /// Planar samples as f32 bits: channel `c`, frame `i` of the block at `c * BLOCK + i`.
-    data: Box<[AtomicU32]>,
+    /// Allocated by the prefetch thread when the slot is first filled, so a file nobody plays
+    /// holds no sample memory and the audio thread never allocates.
+    data: OnceLock<Box<[AtomicU32]>>,
 }
 
 struct Cache {
@@ -67,7 +69,7 @@ impl Cache {
     fn copy(&self, block: u64, ch: usize, offset: usize, out: &mut [f32]) -> bool {
         let Some(slot) = self.slots.iter().find(|s| s.block.load(Ordering::Acquire) == block) else { return false };
         let from = ch * BLOCK + offset;
-        let Some(src) = slot.data.get(from..from + out.len()) else { return false };
+        let Some(src) = slot.data.get().and_then(|d| d.get(from..from + out.len())) else { return false };
         for (o, s) in out.iter_mut().zip(src) {
             *o = f32::from_bits(s.load(Ordering::Relaxed));
         }
@@ -111,9 +113,10 @@ impl Cache {
                 Vec::new()
             }
         };
+        let data = slot.data.get_or_init(|| (0..self.channels * BLOCK).map(|_| AtomicU32::new(0)).collect());
         for ch in 0..self.channels {
             let samples = channels.get(ch).map_or(&[][..], Vec::as_slice);
-            for (i, cell) in slot.data.iter().skip(ch * BLOCK).take(BLOCK).enumerate() {
+            for (i, cell) in data.iter().skip(ch * BLOCK).take(BLOCK).enumerate() {
                 cell.store(samples.get(i).copied().unwrap_or(0.0).to_bits(), Ordering::Relaxed);
             }
         }
@@ -149,7 +152,7 @@ impl DiskStream {
         let Some(reader) = WavReader::open(path).map_err(|e| e.to_string())? else { return Ok(None) };
         let info = reader.info().clone();
         let channels = usize::from(info.channels);
-        let slot = || Slot { block: AtomicU64::new(NONE), data: (0..channels * BLOCK).map(|_| AtomicU32::new(0)).collect() };
+        let slot = || Slot { block: AtomicU64::new(NONE), data: OnceLock::new() };
         let cache = Arc::new(Cache {
             channels,
             frames: info.frames,
@@ -265,6 +268,18 @@ mod tests {
 
     fn open(path: &std::path::Path) -> DiskStream {
         DiskStream::open(path).unwrap().unwrap()
+    }
+
+    #[test]
+    fn sample_memory_is_allocated_only_as_blocks_are_loaded() {
+        let (path, _) = file("lazy", BLOCK * 3);
+        let s = open(&path);
+        let held = |s: &DiskStream| s.cache.slots.iter().filter(|slot| slot.data.get().is_some()).count();
+        assert_eq!(held(&s), 0, "an unplayed file holds no sample memory");
+        assert!(s.prime(0, SECOND));
+        let n = held(&s);
+        assert!((1..SLOTS).contains(&n), "{n} of {SLOTS} slots allocated");
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]
