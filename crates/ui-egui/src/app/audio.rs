@@ -79,6 +79,19 @@ impl SoundApp {
         };
     }
 
+    /// Say when sources streamed from disk came late and played as silence.
+    pub(super) fn watch_streams(&mut self) {
+        if !self.engine.transport.playing {
+            return;
+        }
+        let pool = &self.engine.session().pool;
+        let total: u64 = pool.ids().filter_map(|id| pool.get(id)).map(|a| a.misses()).sum();
+        if total > self.misses_shown {
+            self.ui.status = format!("The disk is too slow for streamed audio: {total} blocks played as silence so far.");
+        }
+        self.misses_shown = total;
+    }
+
     /// Stop recording, keeping the take, when the input device or the disk fails, and say as soon
     /// as a slow disk loses input.
     pub(super) fn watch_input(&mut self) {

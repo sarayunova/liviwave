@@ -259,6 +259,8 @@ pub struct SoundApp {
     recorder_failed: bool,
     /// Input this take lost to a slow disk, as last reported (ms).
     lost_shown: u64,
+    /// Blocks of streamed audio the disk delivered too late, as last reported.
+    misses_shown: u64,
     /// Where the takes being recorded go, autosaved with the session so a crash can't lose them.
     take_plan: Option<liviwave_engine::io::Recording>,
     pub ui: UiState,

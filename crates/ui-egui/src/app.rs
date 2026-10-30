@@ -40,6 +40,7 @@ impl SoundApp {
             punch: None,
             recorder_failed: false,
             lost_shown: 0,
+            misses_shown: 0,
             take_plan: None,
             ui: UiState::default(),
             audio_health_report: None,
@@ -190,6 +191,7 @@ impl SoundApp {
         }
         self.watch_output();
         self.watch_input();
+        self.watch_streams();
         // Stop the old playback before sending a replacement session to the audio thread.
         self.handle_transport(dt);
         if self.engine.revision != self.last_rev {
