@@ -21,6 +21,12 @@ const SLOTS: usize = CURSORS * (AHEAD + 2);
 const NONE: u64 = u64::MAX;
 /// How long the prefetch thread sleeps when everything wanted is loaded.
 const IDLE: Duration = Duration::from_millis(5);
+/// How long it sleeps once nothing has been wanted for a while (nobody is playing the file).
+/// Blocks are cached seconds ahead, and `prime` wakes the thread, so this only delays the first
+/// load after an unprimed read.
+const DOZE: Duration = Duration::from_millis(100);
+/// Idle rounds before the thread dozes (about a second).
+const DOZE_AFTER: u32 = 200;
 
 struct Slot {
     /// The block held, or `NONE`. Set last when a block is stored and first when it is replaced.
@@ -126,9 +132,13 @@ impl Cache {
 }
 
 fn prefetch(cache: &Cache, mut reader: WavReader) {
+    let mut idle = 0u32;
     while !cache.stop.load(Ordering::Relaxed) {
-        if !cache.load_one(&mut reader) {
-            std::thread::park_timeout(IDLE);
+        if cache.load_one(&mut reader) {
+            idle = 0;
+        } else {
+            idle = idle.saturating_add(1);
+            std::thread::park_timeout(if idle >= DOZE_AFTER { DOZE } else { IDLE });
         }
     }
 }

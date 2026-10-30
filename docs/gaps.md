@@ -137,8 +137,8 @@ launch #142; Linux #45, #107.
 - **Missing:** other formats and files at another rate still decode whole; imports run by command
   or script and finished takes are not streamed until the session is reopened; bundles decode
   streamed files whole; no hardware test of dropouts yet (`SourceAudio::misses` counts them and the status bar
-  warns while playing since 2026-10-30); every streamed file still keeps its own prefetch thread,
-  which wakes every 5 ms. Cache blocks (up to ~2 MB stereo per file in use) are allocated only
+  warns while playing since 2026-10-30); every streamed file still keeps its own prefetch thread
+  (idle ones check every 100 ms since 2026-10-30, busy ones every 5 ms). Cache blocks (up to ~2 MB stereo per file in use) are allocated only
   when first loaded since 2026-10-30. Recovered takes are placed without the record offset.
 - **Impact:** hour-long multitrack sessions exhaust memory.
 - **Estimate:** ≈ 15–25 h.
