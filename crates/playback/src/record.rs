@@ -199,7 +199,7 @@ where
 /// The input configuration at `rate` when the device offers one: the best sample format first,
 /// then the most channels (so a stereo interface is preferred over a mono one). `None` lets the
 /// caller use the device's default input configuration (the mix resamples when the rates differ).
-fn pick_input_config(configs: &[cpal::SupportedStreamConfigRange], rate: u32) -> Option<cpal::SupportedStreamConfig> {
+pub(crate) fn pick_input_config(configs: &[cpal::SupportedStreamConfigRange], rate: u32) -> Option<cpal::SupportedStreamConfig> {
     configs
         .iter()
         .filter_map(|c| {

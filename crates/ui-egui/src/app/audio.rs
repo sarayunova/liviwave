@@ -79,6 +79,49 @@ impl SoundApp {
         };
     }
 
+    /// Start measuring the round trip with a cable from the output to the input, on its own thread.
+    pub fn start_loopback(&mut self) -> Result<(), String> {
+        if self.loopback.is_some() {
+            return Err("a loopback measurement is already running".into());
+        }
+        if self.engine.transport.playing || self.engine.transport.recording {
+            return Err("stop the transport before measuring".into());
+        }
+        let (cfg, rate) = (self.ui.audio.clone(), self.engine.session().sample_rate.hz());
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::Builder::new()
+            .name("loopback".into())
+            .spawn(move || {
+                let _ = tx.send(liviwave_playback::loopback::measure(&cfg, rate));
+            })
+            .map_err(|e| e.to_string())?;
+        self.loopback = Some(rx);
+        self.ui.status = "Measuring the round trip: the test signal plays for a moment...".into();
+        Ok(())
+    }
+
+    /// Take a finished loopback measurement: it becomes the record offset.
+    pub(super) fn poll_loopback(&mut self) {
+        let Some(rx) = &self.loopback else { return };
+        let found = match rx.try_recv() {
+            Ok(r) => r,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => Err("the measurement stopped unexpectedly".into()),
+        };
+        self.loopback = None;
+        self.ui.status = match found {
+            Ok(m) => {
+                let mut cfg = self.ui.audio.clone();
+                cfg.record_offset = i32::try_from(m.samples).ok().filter(|n| *n <= 96_000);
+                match self.apply_audio_config(cfg) {
+                    Ok(()) => format!("Round trip {:.1} ms ({} samples) on input {}; record offset set to it.", m.ms, m.samples, m.channel + 1),
+                    Err(e) => e,
+                }
+            }
+            Err(e) => e,
+        };
+    }
+
     /// Say when sources streamed from disk came late and played as silence.
     pub(super) fn watch_streams(&mut self) {
         if !self.engine.transport.playing {

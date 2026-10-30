@@ -261,6 +261,8 @@ pub struct SoundApp {
     lost_shown: u64,
     /// Blocks of streamed audio the disk delivered too late, as last reported.
     misses_shown: u64,
+    /// The loopback measurement running on its own thread, and what it found.
+    loopback: Option<std::sync::mpsc::Receiver<Result<liviwave_playback::loopback::Measured, String>>>,
     /// Where the takes being recorded go, autosaved with the session so a crash can't lose them.
     take_plan: Option<liviwave_engine::io::Recording>,
     pub ui: UiState,

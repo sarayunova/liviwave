@@ -583,6 +583,18 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
             ui.label(format!("{sr} Hz{note}"));
             ui.end_row();
         });
+        ui.horizontal(|ui| {
+            let busy = app.loopback.is_some();
+            let tip = "Cable an output to an input (turn the speakers down), then measure the true round trip. It becomes the record offset.";
+            if ui.add_enabled(!busy, egui::Button::new("Measure round trip")).on_hover_text(tip).clicked()
+                && let Err(e) = app.start_loopback()
+            {
+                app.ui.status = e;
+            }
+            if busy {
+                ui.spinner();
+            }
+        });
         ui.label(egui::RichText::new("The mix runs in 512-sample blocks; the buffer size sets the device's own latency.").small().color(t.text_dim));
         let mut dc = app.engine.session().edit.delay_compensation;
         if crate::widgets::checkbox(ui, &mut dc, "Delay compensation").changed() {
@@ -612,7 +624,9 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
 
 /// `ui.audio_device`: `{list?: bool}` returns the audio systems and their devices;
 /// `{system?, output?, input?, sample_rate?, buffer_size?, record_offset?}` (a `null` value means "default"; `record_offset` is samples, null = automatic) sets
-/// the choice and reopens the devices. Always returns the choice and the open device.
+/// the choice and reopens the devices; `{measure: true}` plays a test signal from the output into the input
+/// (cabled together) and sets `record_offset` to the round trip, reported in the status and `config` once `measuring` is false.
+/// Always returns the choice and the open device.
 pub fn audio_device_command(app: &mut SoundApp, p: &serde_json::Value) -> Result<serde_json::Value, String> {
     use serde_json::Value;
     let mut changed = false;
@@ -644,10 +658,13 @@ pub fn audio_device_command(app: &mut SoundApp, p: &serde_json::Value) -> Result
     if changed {
         app.apply_audio_config(cfg)?;
     }
+    if p.get("measure").and_then(Value::as_bool).unwrap_or(false) {
+        app.start_loopback()?;
+    }
     let device = app.player.as_ref().map(|pl| {
         json!({"name": pl.device_name, "sample_rate": pl.device_rate, "channels": pl.device_channels, "buffer_size": pl.device_buffer, "output_latency_ms": pl.output_latency_ms(), "silent": pl.silent})
     });
-    let mut out = json!({"config": app.ui.audio, "device": device});
+    let mut out = json!({"config": app.ui.audio, "device": device, "measuring": app.loopback.is_some()});
     if p.get("list").and_then(Value::as_bool).unwrap_or(false) {
         out["systems"] = json!(liviwave_playback::devices::audio_systems());
     }
