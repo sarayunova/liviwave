@@ -47,7 +47,7 @@ When you close a gap, delete its entry (or shrink it) in the same PR, and bump t
   for agents); f32 and 16/32-bit integer devices; ASIO behind the opt-in `asio` build feature
   (verified on Windows with an SSL 2+ at 128 samples).
 - **Missing:** (tracks, busses via aux returns, and the main mix reach any output path, each at its first channel, since 2026-10-28), a true duplex stream (cpal 0.18 has none, so input and
-  output are still separate streams; the monitor follows the output clock since 2026-10-29), loopback measurement of the true round trip (reported latencies and a manual record offset are used since 2026-10-28), ASIO
+  output are still separate streams; the monitor follows the output clock since 2026-10-29), verification of loopback measurement on real hardware (Setup › Playback Engine › Measure round trip, or `ui.audio_device {measure: true}`, plays a sweep from the output into a cabled input and sets the record offset since 2026-10-30; without a duplex stream it is good to about one buffer period, and untested on hardware), ASIO
   in official builds (owner decision: Steinberg's SDK is proprietary or GPLv3), JACK, and
   verification on macOS and Linux. The mix still runs in fixed 512-sample blocks.
   `setup.playback_engine` still stores `device`/`buffer_size` in the session, unused.
@@ -136,7 +136,7 @@ launch #142; Linux #45, #107.
   (decoded on a worker thread) stream by the same rule.
 - **Missing:** other formats and files at another rate still decode whole; imports run by command
   or script and finished takes are not streamed until the session is reopened; bundles decode
-  streamed files whole; no hardware test of dropouts yet (`SourceAudio::misses` counts them,
+  streamed files whole; no hardware test of dropouts yet (`SourceAudio::misses` counts them and the status bar warns while playing since 2026-10-30,
   nothing shows it); the cache is allocated per source up front (~2 MB stereo). Recovered takes
   are placed without the record offset.
 - **Impact:** hour-long multitrack sessions exhaust memory.
